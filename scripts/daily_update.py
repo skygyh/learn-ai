@@ -2,6 +2,7 @@
 # requires-python = ">=3.11"
 # dependencies = [
 #     "feedparser>=6.0",
+#     "pyyaml>=6.0",
 # ]
 # ///
 """
@@ -32,25 +33,11 @@ if sys.stdout.encoding != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
+import yaml
 import feedparser
 
-# ──────────────────────────────────────────────
-# RSS 源（经过验证可用的）
-# ──────────────────────────────────────────────
-RSS_FEEDS: list[dict] = [
-    # 论文
-    {"name": "arXiv cs.AI", "url": "https://rss.arxiv.org/rss/cs.AI", "cat": "papers"},
-    {"name": "arXiv cs.CL", "url": "https://rss.arxiv.org/rss/cs.CL", "cat": "papers"},
-    # 厂商博客
-    {"name": "OpenAI", "url": "https://openai.com/blog/rss.xml", "cat": "industry"},
-    {"name": "DeepMind", "url": "https://deepmind.google/blog/rss.xml", "cat": "industry"},
-    # 社区 / 独立博主
-    {"name": "Latent Space", "url": "https://www.latent.space/feed", "cat": "community"},
-    {"name": "Sebastian Raschka", "url": "https://magazine.sebastianraschka.com/feed", "cat": "community"},
-    {"name": "Simon Willison", "url": "https://simonwillison.net/atom/everything/", "cat": "community"},
-]
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
+FEEDS_FILE = REPO_ROOT / "scripts" / "feeds.yaml"
 JOURNAL_DIR = REPO_ROOT / "journal"
 
 TODAY = dt.date.today()
@@ -92,9 +79,25 @@ def fetch_feed(cfg: dict, since: dt.datetime) -> list[dict]:
     return entries
 
 
+def load_feeds() -> list[dict]:
+    """从 feeds.yaml 加载订阅源列表（只加载 verified: true 的）。"""
+    with open(FEEDS_FILE, encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+    feeds: list[dict] = []
+    for cat, items in data.items():
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if not item.get("verified", False):
+                continue
+            feeds.append({"name": item["name"], "url": item["url"], "cat": cat})
+    return feeds
+
+
 def fetch_all(since: dt.datetime) -> list[dict]:
+    feeds = load_feeds()
     all_entries: list[dict] = []
-    for cfg in RSS_FEEDS:
+    for cfg in feeds:
         print(f"  {cfg['name']} ...", end=" ", flush=True)
         items = fetch_feed(cfg, since)
         all_entries.extend(items)

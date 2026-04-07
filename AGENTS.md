@@ -21,13 +21,59 @@
 - 每次修改知识文档时更新 `updated` 字段
 - 参考资料统一放在文档末尾的 `## 参考资料` 区
 
+### 来源标识（Source Citation）
+
+用 Markdown 脚注标记段落信息的出处。格式约定：
+
+#### 脚注 key 命名规则
+
+`来源简写-年份` 或 `来源简写-年份-关键词`，全小写，连字符分隔。
+
+| 来源类型 | key 示例 |
+|----------|----------|
+| 论文 | `arxiv-2025-attention` |
+| 厂商博客 | `openai-2025-gpt5`, `google-2025-gemini` |
+| 个人博客 | `willison-2025-agents` |
+| 官方文档 | `pytorch-docs-compile` |
+
+#### 行内引用
+
+在段落末尾或关键句后加脚注标记：
+
+```markdown
+Transformer 的核心是自注意力机制，通过 Q/K/V 矩阵计算 token 间的关联权重[^vaswani-2017]。
+近期研究表明线性注意力可以将复杂度降至 O(n)[^arxiv-2025-linear-attn]。
+```
+
+#### 参考资料区定义
+
+在文档末尾 `## 参考资料` 下定义所有脚注，格式统一为：
+
+```markdown
+## 参考资料
+
+[^vaswani-2017]: Vaswani et al. *Attention Is All You Need*. 2017. https://arxiv.org/abs/1706.03762
+[^arxiv-2025-linear-attn]: Zhang et al. *Linear Attention Revisited*. 2025. https://arxiv.org/abs/2501.xxxxx
+[^openai-2025-gpt5]: OpenAI. "Introducing GPT-5". 2025. https://openai.com/blog/gpt-5
+```
+
+#### 整段引用
+
+如果某一整段内容来自单一来源，可以在段首用粗体标注来源，避免每句都打脚注：
+
+```markdown
+**[来源: OpenAI Blog][^openai-2025-gpt5]** GPT-5 在推理基准上相比前代提升了 40%。
+模型采用了全新的 MoE 架构……
+```
+
 ## 日更脚本
 
 - 入口：`scripts/daily_update.py`
 - 只做一件事：拉 RSS → 写 `journal/YYYY/MM/DD.md`
 - 依赖管理：PEP 723 inline metadata，`uv run` 自动安装
-- GitHub Actions：`.github/workflows/daily-update.yml`，每天 UTC 00:00 运行
-- RSS 源在脚本顶部 `RSS_FEEDS` 列表中配置，只保留经过验证可用的源
+- RSS 源配置在 `scripts/feeds.yaml`，按分类（papers / industry / community）组织
+  - 只有 `verified: true` 的源会被拉取
+  - 添加新源后先跑 `uv run scripts/daily_update.py --hours 1` 验证，再把 `verified` 改为 `true`
 - 运行：`uv run scripts/daily_update.py` 或 `uv run scripts/daily_update.py --hours 48`
 
 ## LLM 整理流程（手动触发）

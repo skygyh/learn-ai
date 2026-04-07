@@ -1,0 +1,68 @@
+# feeds.yaml — RSS / Atom 订阅源
+#
+# 字段说明:
+#   name:     显示名称（会出现在 journal 条目的 [来源] 标签中）
+#   url:      RSS / Atom 地址
+#   cat:      分类 key（papers | industry | community）
+#   verified: true = 已验证可用，false = 待验证
+#
+# 添加新源后建议先跑一次:
+#   uv run scripts/daily_update.py --hours 1
+
+# ── 论文 ──────────────────────────────────────
+papers:
+  - name: arXiv cs.AI
+    url: https://rss.arxiv.org/rss/cs.AI
+    verified: true
+
+  - name: arXiv cs.CL
+    url: https://rss.arxiv.org/rss/cs.CL
+    verified: true
+
+# ── 厂商博客 ──────────────────────────────────
+industry:
+  - name: OpenAI
+    url: https://openai.com/blog/rss.xml
+    verified: true
+
+  - name: Google DeepMind
+    url: https://deepmind.google/blog/rss.xml
+    verified: true
+
+  - name: Anthropic
+    url: https://www.anthropic.com/rss.xml
+    verified: false
+
+  - name: Meta AI
+    url: https://ai.meta.com/blog/rss/
+    verified: false
+
+  - name: Microsoft Research
+    url: https://www.microsoft.com/en-us/research/feed/
+    verified: false
+
+  - name: Google AI Blog
+    url: https://blog.google/technology/ai/rss/
+    verified: false
+
+  - name: NVIDIA AI
+    url: https://blogs.nvidia.com/feed/
+    verified: false
+
+  - name: Apple Machine Learning
+    url: https://machinelearning.apple.com/rss.xml
+    verified: false
+
+# ── 社区 / 独立博主 ───────────────────────────
+community:
+  - name: Latent Space
+    url: https://www.latent.space/feed
+    verified: true
+
+  - name: Sebastian Raschka
+    url: https://magazine.sebastianraschka.com/feed
+    verified: true
+
+  - name: Simon Willison
+    url: https://simonwillison.net/atom/everything/
+    verified: true
