@@ -72,29 +72,19 @@ learn-ai/
 
 ---
 
-## 每日自动更新
+## 每日更新
 
-本仓库配置了 GitHub Actions，每天 UTC 00:00 (北京时间 08:00) 自动运行：
+GitHub Actions 每天 UTC 00:00 自动拉取 RSS 写入 `journal/`：
 
-1. 从 arXiv、OpenAI Blog、Anthropic、DeepMind、Hugging Face 等 RSS 源拉取最新条目
-2. (可选) 调用 LLM 生成中文摘要日报
-3. 写入 `journal/YYYY/MM/DD.md`
-4. 模型发布相关条目自动追加到 `landscape/model-tracker.md`
-5. 自动 commit & push
+- **数据源**: arXiv cs.AI/cs.CL、OpenAI Blog、DeepMind Blog、Latent Space、Sebastian Raschka、Simon Willison
+- **输出**: `journal/YYYY/MM/DD.md` — 按论文/厂商动态/社区分类的原始条目
+- **RSS 源配置**: `scripts/daily_update.py` 顶部的 `RSS_FEEDS`
 
-### 配置
-
-- 在 GitHub repo Settings → Secrets 中设置 `OPENAI_API_KEY`（可选，不设则使用简单格式化）
-- RSS 源列表在 `scripts/daily_update.py` 的 `RSS_FEEDS` 中配置
-
-### 手动运行
+整理流程（人+LLM）见 [AGENTS.md](AGENTS.md#llm-整理流程手动触发)。
 
 ```bash
-# 本地运行
+# 手动拉取
 uv run scripts/daily_update.py
-
-# 不调用 LLM
-uv run scripts/daily_update.py --no-llm
 
 # 拉取过去 48 小时
 uv run scripts/daily_update.py --hours 48
