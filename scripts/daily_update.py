@@ -11,8 +11,8 @@
 daily_update.py — 拉取 AI 社区 RSS + 网页爬虫，写入 journal 原始素材。
 
 用法:
-    uv run scripts/daily_update.py            # 拉取过去 24h
-    uv run scripts/daily_update.py --hours 48 # 拉取过去 48h
+    uv run scripts/daily_update.py            # 拉取过去 48h
+    uv run scripts/daily_update.py --hours 24 # 拉取过去 24h
 
 输出:
     journal/YYYY/MM/DD/<source>.md  — 每个订阅源一个文件
@@ -77,6 +77,7 @@ def fetch_feed(cfg: dict, since: dt.datetime) -> list[dict]:
                 "title": getattr(e, "title", "Untitled").strip(),
                 "link": getattr(e, "link", ""),
                 "summary": summary,
+                "published": pub.strftime("%Y-%m-%d") if pub else "",
                 "source": cfg["name"],
                 "slug": cfg["slug"],
                 "cat": cfg["cat"],
@@ -136,7 +137,8 @@ def format_source_entries(entries: list[dict]) -> str:
     """格式化单个订阅源的条目列表。"""
     lines: list[str] = []
     for e in entries:
-        line = f"- **{e['title']}**"
+        date_tag = f"[{e['published']}] " if e.get("published") else ""
+        line = f"- {date_tag}**{e['title']}**"
         if e["summary"]:
             line += f" — {e['summary']}"
         if e["link"]:
@@ -195,7 +197,7 @@ def write_journal(date: dt.date, entries: list[dict]) -> list[Path]:
 # ──────────────────────────────────────────────
 def main():
     ap = argparse.ArgumentParser(description="拉取 AI RSS 写入 journal")
-    ap.add_argument("--hours", type=int, default=24, help="回溯小时数 (默认 24)")
+    ap.add_argument("--hours", type=int, default=48, help="回溯小时数 (默认 48)")
     args = ap.parse_args()
 
     since = dt.datetime.now() - dt.timedelta(hours=args.hours)

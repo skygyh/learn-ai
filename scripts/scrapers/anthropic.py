@@ -61,7 +61,8 @@ def scrape(since: dt.datetime | None = None) -> list[dict]:
     Args:
         since: 只返回该时间之后的文章。None 表示不过滤。
     """
-    resp = httpx.get(_URL, follow_redirects=True, timeout=30, headers=_HEADERS)
+    resp = httpx.get(_URL, follow_redirects=True, timeout=30, headers=_HEADERS,
+                     verify=False)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
 
@@ -85,11 +86,13 @@ def scrape(since: dt.datetime | None = None) -> list[dict]:
     for href, title in best.items():
         if since and dates.get(href) and dates[href] < since:
             continue
+        pub = dates.get(href)
         link = f"https://www.anthropic.com{href}"
         entries.append({
             "title": title,
             "link": link,
             "summary": "",
+            "published": pub.strftime("%Y-%m-%d") if pub else "",
             "source": NAME,
             "slug": SLUG,
             "cat": CATEGORY,

@@ -7,5 +7,5 @@ category: 厂商动态
 
 # Claude Blog
 
-- **How and when to use subagents in Claude Code**  
+- [2026-04-07] **How and when to use subagents in Claude Code**  
   https://claude.com/blog/subagents-in-claude-code
