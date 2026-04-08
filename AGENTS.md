@@ -133,7 +133,8 @@ Transformer 的核心是自注意力机制，通过 Q/K/V 矩阵计算 token 间
 
 | 素材类型 | 归入文件 |
 |----------|----------|
-| Transformer/SSM/Mamba 架构演进 | `docs/foundations/sequence-architectures.md` |
+| Transformer 架构演进 | `docs/foundations/transformer.md` |
+| SSM/Mamba/替代架构 | `docs/foundations/mamba-and-ssm.md` |
 | 新模型发布/Scaling/评估 | `docs/foundations/large-language-models.md` |
 | 多模态新进展 | `docs/foundations/multimodal-ai.md` |
 | 训练/对齐新方法 | `docs/foundations/training-and-alignment.md` |
