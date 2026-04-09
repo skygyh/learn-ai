@@ -1,7 +1,3 @@
-# /// script
-# requires-python = ">=3.12"
-# dependencies = ["pyyaml"]
-# ///
 """Validate Markdown files in the learn-ai knowledge base.
 
 Checks:

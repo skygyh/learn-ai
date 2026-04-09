@@ -1,5 +1,9 @@
 # scripts/ — 自动化脚本
 
+## 依赖管理
+
+所有依赖统一在 `pyproject.toml` 中管理，**不要使用 PEP 723 inline script metadata**。新增依赖用 `uv add <pkg>`。
+
 ## 验证脚本
 
 `validate_docs.py` 检查所有 `.md` 文件的格式规范：
