@@ -2,7 +2,7 @@
 title: "Mamba 与状态空间模型 (SSM)"
 description: "状态空间模型从 S4 到 Mamba 的演进路径、替代架构（RWKV/xLSTM/RetNet）以及 Transformer-SSM 混合架构的深度解析。"
 created: 2026-04-08
-updated: 2026-04-08
+updated: 2026-04-09
 tags: [mamba, ssm, state-space-model, rwkv, xlstm, jamba, hybrid-architecture]
 ---
 
@@ -193,6 +193,23 @@ Retention(Q, K, V) = (QK^T ⊙ D) V    其中 D_{ij} = γ^{i-j} (因果衰减掩
 
 这个三模式等价性后来被 Mamba-2 的 SSD 框架所吸收和泛化。
 
+### 6.4 Phase-Associative Memory (PAM, 2026)
+
+PAM[^pam-2026] 是一种完全基于复数域的循环序列模型，核心思想是将联想记忆推广到**复 Hilbert 空间**。
+
+**架构核心**：所有表征为复数值，联想通过外积累积在矩阵状态 S_t ∈ ℂ^{d×d} 中，检索通过共轭内积 K_t* · Q_t / √d 完成：
+
+```
+状态更新: S_t = S_{t-1} + V_t ⊗ K_t*    # 外积累积（矩阵联想记忆）
+检索输出: y_t = S_t · Q_t                 # 共轭内积检索
+```
+
+**为什么从向量记忆升级到矩阵记忆**：向量状态模型（如全息绑定 holographic binding）的联想记忆容量以 O(1/√n) 速率退化——叠加的联想越多，每条的保真度越低。矩阵状态将容量瓶颈从 O(√d) 提升到 O(d)，根本性地解决了这个问题。
+
+**初步结果**：~100M 参数在 WikiText-103 上达到 perplexity 30.0，与相同条件训练的 Transformer（27.1）差距约 10%，但 PAM 承受了 4× 的复数运算开销且未使用定制 CUDA kernel。
+
+**与 SSM 的关系**：PAM 可视为 SSM 的"复数化"变体——状态转移和检索都在复数域上操作，保留了 RNN 式的线性推理复杂度。其数学形式也与线性注意力有类比关系，但用相位（phase）编码替代了显式的衰减或门控。
+
 ---
 
 ## 7. 混合架构：融合两个范式
@@ -267,3 +284,4 @@ Mamba → 共享 Attention → Mamba → 共享 Attention → Mamba → ...
 [^xlstm-2024]: Beck et al. *xLSTM: Extended Long Short-Term Memory*. 2024. https://arxiv.org/abs/2405.04517
 [^retnet-2023]: Sun et al. *Retentive Network: A Successor to Transformer for Large Language Models*. 2023. https://arxiv.org/abs/2307.08621
 [^jamba-2024]: Lieber et al. *Jamba: A Hybrid Transformer-Mamba Language Model*. 2024. https://arxiv.org/abs/2403.19887
+[^pam-2026]: Vishwakarma & Agostino. *Phase-Associative Memory: Sequence Modeling in Complex Hilbert Space*. 2026. https://arxiv.org/abs/2604.05030

@@ -2,7 +2,7 @@
 title: 模型动态跟踪
 description: 追踪主流 AI 模型的最新发布、更新和关键变化。本文件由日更脚本自动维护。
 created: 2026-04-07
-updated: 2026-04-08
+updated: 2026-04-09
 tags: [models, landscape, tracker]
 ---
 
@@ -16,6 +16,7 @@ tags: [models, landscape, tracker]
 
 | 模型 | 厂商 | 发布时间 | 上下文窗口 | 亮点 |
 |------|------|----------|------------|------|
+| **Muse Spark** | Meta (MSL) | 2026.4 | - | MSL 全新架构栈首个前沿模型，闭源托管，Instant/Thinking 双模式 |
 | **Claude Mythos Preview** | Anthropic | 2026.4 | - | 超强网络安全能力，受限发布（Project GlassWing） |
 | **Claude Opus 4.6** | Anthropic | 2026.3 | 1M | 1M 上下文 GA |
 | **Claude Sonnet 4.6** | Anthropic | 2026.3 | 1M | 1M 上下文 GA |
@@ -46,6 +47,10 @@ tags: [models, landscape, tracker]
 
 ## 最近更新
 
+### 2026-04-09
+
+- **Muse Spark** 发布：Meta Superintelligence Labs（MSL）全新架构栈的首个前沿模型。闭源托管（非开源权重），提供 Instant 和 Thinking 两种模式，未来将增加 Contemplating（长推理）模式。基准与 Opus 4.6、Gemini 3.1 Pro 和 GPT-5.4 相当，长周期 Agent 任务仍有差距[^willison-2026-muse-spark]
+
 ### 2026-04-08
 
 - **Claude Mythos Preview** 发布（受限）：Anthropic 最新旗舰模型，网络安全能力远超 Opus 4.6，仅通过 Project GlassWing 向 40 家安全合作伙伴开放[^anthropic-2026-glasswing]
@@ -54,21 +59,13 @@ tags: [models, landscape, tracker]
 
 ---
 
-## 评估排行 (Chatbot Arena)
+## 评估基准
 
-[Chatbot Arena](https://chat.lmsys.org/) 是目前最权威的 LLM 综合评测平台，基于人类盲评 ELO 排名。
-
-| 基准 | 评估能力 |
-|------|----------|
-| **MMLU / MMLU-Pro** | 知识广度与深度 |
-| **HumanEval / SWE-bench** | 代码能力 |
-| **MATH / GSM8K** | 数学推理 |
-| **GPQA** | 专家级科学知识 |
-| **Chatbot Arena (ELO)** | 综合对话 |
-| **FACTS** | 事实性 (Google 2025.12) |
+> 详细的基准说明见 [大语言模型 § 评估基准](../docs/foundations/large-language-models.md#5-评估基准)。
 
 ## 参考资料
 
 [^anthropic-2026-glasswing]: Anthropic. "Project Glasswing". 2026. https://www.anthropic.com/glasswing
 [^willison-2026-glm51]: Simon Willison. "GLM-5.1: Towards Long-Horizon Tasks". 2026. https://simonwillison.net/2026/Apr/7/glm-51/
+[^willison-2026-muse-spark]: Simon Willison. "Meta's new model is Muse Spark". 2026. https://simonwillison.net/2026/Apr/8/muse-spark/
 [^claude-2026-1m-context]: Claude Blog. "1M context is now generally available for Opus 4.6 and Sonnet 4.6". 2026. https://claude.com/blog/1m-context-ga

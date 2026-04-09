@@ -2,7 +2,7 @@
 title: 推理与规划
 description: 推理模型、test-time compute scaling、过程奖励模型等前沿方向。
 created: 2026-04-07
-updated: 2026-04-07
+updated: 2026-04-09
 tags: [reasoning, test-time-compute, prm, o1, deepseek-r1]
 ---
 
@@ -57,9 +57,18 @@ PRM:        评估每个推理步骤的正确性
 - 证明了小模型在特定推理任务上也能有惊人表现
 - 对"推理能力需要多大模型"的认知提出挑战
 
+**ETR: Entropy Trend Reward（2026.4）**
+
+高效 CoT 推理的一个关键问题：如何让模型在推理时既保持足够的思考深度，又不浪费 token 在无效推理上？ETR[^etr-2026] 提出用**熵趋势**作为推理质量的实时信号：
+
+- 监控生成过程中 token 分布的熵变化趋势——有效推理应使后续 token 分布的熵持续下降（越推理越确定）
+- 将熵的下降趋势作为 reward，鼓励模型生成"越想越清楚"的推理链，惩罚"越想越混乱"的无效推理
+- 本质是为推理过程建立了一个无需外部标注的自监督质量信号
+
 ---
 
 ## 参考资料
 
 - Lightman et al., "Let's Verify Step by Step" (Process Reward Models), 2023 - [arXiv:2305.20050](https://arxiv.org/abs/2305.20050)
 - QED-Nano: Teaching a Tiny Model to Prove Hard Theorems - [arXiv:2604.04898](https://arxiv.org/abs/2604.04898)
+- "ETR: Entropy Trend Reward for Efficient Chain-of-Thought Reasoning", 2026 - [arXiv:2604.05355](https://arxiv.org/abs/2604.05355)

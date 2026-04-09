@@ -2,7 +2,7 @@
 title: 检索增强生成 (RAG - Retrieval-Augmented Generation)
 description: RAG 通过将外部知识检索与大语言模型结合，解决了 LLM 知识截止和幻觉问题，是企业级 AI 应用的核心架构之一。
 created: 2026-04-07
-updated: 2026-04-07
+updated: 2026-04-09
 tags: [rag, vector-database, embedding, retrieval, graphrag]
 ---
 
@@ -312,6 +312,22 @@ Naive RAG → Advanced RAG → Modular RAG
          └── 否 → 直接生成 → 评估答案
 ```
 
+### 7.5 Document Optimization for Retrieval via RL（2026.4）
+
+文档扩展（document expansion）是经典的检索优化技术，将补充信息附加到文档上以提升检索召回率。该工作[^doc-opt-rl-2026]将文档扩展建模为**强化学习**问题：
+
+- 将黑盒检索器的排名信号作为 reward，训练生成模型为文档生成最优扩展文本
+- 优势：不需要检索器可微分，适用于任意黑盒检索系统（如商业搜索引擎）
+- 将计算转移到离线阶段，在线查询时无额外开销
+
+### 7.6 LatentAudit: RAG 实时忠实度监控（2026.4）
+
+LatentAudit[^latentaudit-2026] 是一种白盒方法，通过监控 LLM 内部表征来实时检测 RAG 系统中的忠实度偏离（faithfulness drift）：
+
+- 在生成过程中实时分析模型隐层激活，判断输出是否忠于检索上下文
+- 白盒方法比后处理检测更及时（逐 token 监控 vs. 生成完成后评估）
+- 可作为生产 RAG 系统的在线守护层，及时拦截幻觉输出
+
 ---
 
 ## 8. 评估与优化
@@ -435,3 +451,5 @@ RAG 与 Agent 的融合是大趋势：
 - Yan et al., "Corrective Retrieval Augmented Generation", 2024 - [arXiv:2401.15884](https://arxiv.org/abs/2401.15884)
 - RAGAS Documentation: https://docs.ragas.io/
 - LangChain RAG Guide: https://python.langchain.com/docs/tutorials/rag/
+- "Document Optimization for Black-Box Retrieval via Reinforcement Learning", 2026 - [arXiv:2604.05087](https://arxiv.org/abs/2604.05087)
+- "LatentAudit: Real-Time White-Box Faithfulness Monitoring for RAG", 2026 - [arXiv:2604.05358](https://arxiv.org/abs/2604.05358)

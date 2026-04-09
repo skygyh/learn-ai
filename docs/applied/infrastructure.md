@@ -2,7 +2,7 @@
 title: AI 基础设施 (AI Infrastructure)
 description: 从硬件加速器到推理优化，AI 基础设施决定了大模型能否高效训练和部署。本文档梳理当前 AI 基础设施的核心技术栈。
 created: 2026-04-07
-updated: 2026-04-07
+updated: 2026-04-09
 tags: [infrastructure, gpu, inference, quantization, mlops, vllm]
 ---
 
@@ -122,6 +122,22 @@ GPU 间通信层级：
 - 加速 1.5-3 倍
 - Flash Attention 3: 进一步优化，利用 Hopper 架构特性
 
+### 3.5 单卡大模型训练
+
+**MegaTrain**[^megatrain-2026]: 一种 memory-centric 系统，在单块 GPU 上全精度训练 100B+ 参数模型。
+
+核心思路：将 GPU 从"参数存储地"降格为"瞬态计算引擎"——参数和优化器状态驻留在主机内存（CPU RAM），每一层按需流入 GPU 计算梯度后立即流出。
+
+| 指标 | 数据 |
+|------|------|
+| 最大模型 | 单卡 H200 + 1.5TB 主机内存 → 120B 参数 |
+| 吞吐对比 | 14B 模型上比 DeepSpeed ZeRO-3 CPU offloading 快 1.84× |
+| 长上下文 | 单卡 GH200 训练 7B 模型 × 512K 上下文 |
+
+两项关键优化：
+1. **流水线双缓冲执行引擎**：跨多条 CUDA stream 重叠参数预取、前向/反向计算、梯度回写，消除 CPU-GPU 带宽瓶颈
+2. **无状态层模板**：用 stateless layer template 替代 PyTorch autograd 的持久计算图，权重在流入时动态绑定，减少图元数据开销并提供灵活调度
+
 ---
 
 ## 4. 模型推理与部署
@@ -136,6 +152,17 @@ GPU 间通信层级：
 | **Speculative Decoding** | 小模型预测+大模型验证 | 2-3x 加速 |
 | **Prefix Caching** | 缓存共享前缀的 KV-Cache | 减少延迟 |
 | **Chunked Prefill** | 分块处理长输入 | 减少首 token 延迟 |
+
+**Multi-Drafter Speculative Decoding**[^multi-drafter-2026]（2026.4 arXiv）：传统推测解码用单个小模型做草稿，该工作提出用多个草稿模型并行预测，再通过对齐反馈（alignment feedback）筛选和聚合候选 token。多草稿模型提高了 token 接受率，对齐反馈确保草稿质量。
+
+> KV Cache 的原理和压缩技术详见 [Transformer 架构 § KV Cache](../foundations/transformer.md#4-kv-cache自回归推理的核心机制)。以下聚焦工程部署视角。
+
+**KV Cache 的工程决策**：生产环境中 KV Cache 管理直接决定系统吞吐和延迟。关键调优点：
+
+1. **显存预算分配**：典型推理服务中，模型权重占固定显存，剩余空间全部给 KV Cache。vLLM 的 `gpu_memory_utilization` 参数控制这个比例——设得越高，能同时服务的请求越多，但 OOM 风险增大
+2. **Block size 选择**：PagedAttention 的 block size（通常 16-32 tokens）影响碎片率和 kernel 效率。太小则页表开销大，太大则末尾浪费多
+3. **Prefix Caching 策略**：对 system prompt 固定的应用（如客服机器人），prefix caching 可以将首 token 延迟从秒级降到毫秒级。SGLang 的 Radix Attention 支持自动前缀匹配，无需手动管理
+4. **KV Cache offloading**：当显存不足时，可以将不活跃请求的 KV Cache 卸载到 CPU 内存甚至 SSD，待请求恢复时再加载回来。FlexGen 等系统用这种方式在单卡上支持超长上下文
 
 ### 4.2 推理框架
 
@@ -361,6 +388,7 @@ ONNX (Open Neural Network Exchange) 提供模型格式标准化：
 - Google Gemini Nano (手机端运行)
 - Qualcomm AI Engine
 - 小模型+量化 = 手机/笔记本上运行 LLM
+- Google LiteRT-LM: C++ 运行时，专为边缘设备 LLM 推理设计（2026.4 GitHub Trending，501 stars/day）
 
 ### 9.3 能效与可持续性
 
@@ -392,3 +420,5 @@ ONNX (Open Neural Network Exchange) 提供模型格式标准化：
 - Frantar et al., "GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers", 2022 - [arXiv:2210.17323](https://arxiv.org/abs/2210.17323)
 - vLLM: https://github.com/vllm-project/vllm
 - Ollama: https://ollama.com/
+- Yuan et al., "MegaTrain: Full Precision Training of 100B+ Parameter Large Language Models on a Single GPU", 2026 - [arXiv:2604.05091](https://arxiv.org/abs/2604.05091)
+- "Multi-Drafter Speculative Decoding with Alignment Feedback", 2026 - [arXiv:2604.05417](https://arxiv.org/abs/2604.05417)

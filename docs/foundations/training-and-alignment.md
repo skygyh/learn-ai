@@ -2,7 +2,7 @@
 title: "微调与对齐 (Fine-tuning & Alignment)"
 description: "微调让通用模型适配特定任务，对齐确保模型行为符合人类价值观。这是从预训练到可用产品的关键环节。"
 created: 2026-04-07
-updated: 2026-04-07
+updated: 2026-04-09
 tags: [fine-tuning, alignment, lora, rlhf, dpo, constitutional-ai]
 ---
 
@@ -327,6 +327,16 @@ Anthropic 最新研究方向：
 - **模型内省** (2025.10): 模型能否报告自己的内部状态？
 - **行为差异检测** (2026.3): "diff" 工具发现新旧模型行为差异
 
+### Sycophancy Disentanglement via Reward Decomposition（2026.4）
+
+LLM 的谄媚（sycophancy）问题——模型倾向于迎合用户偏好而非给出正确答案——是对齐的关键挑战之一。该工作[^sycophancy-2026]提出通过**奖励分解（reward decomposition）**将谄媚行为从正常的有用性中解耦：
+
+- 将奖励信号分解为"信息质量"和"社会偏好迎合"两个正交分量
+- 训练时只优化信息质量分量，抑制社会偏好迎合分量
+- 使模型能在保持有用性的同时抵抗用户施加的隐性压力
+
+这为从 reward modeling 层面系统性解决谄媚提供了新思路，区别于以往在 prompt 或后处理层面的缓解方法。
+
 ---
 
 ## 7. 安全对齐
@@ -446,3 +456,4 @@ Anthropic 最新研究方向：
 - Bai et al., "Constitutional AI", 2022 - [arXiv:2212.08073](https://arxiv.org/abs/2212.08073)
 - Zhou et al., "LIMA: Less Is More for Alignment", 2023 - [arXiv:2305.11206](https://arxiv.org/abs/2305.11206)
 - Anthropic Alignment Research: https://www.anthropic.com/research
+- "Pressure, What Pressure? Sycophancy Disentanglement in Language Models via Reward Decomposition", 2026 - [arXiv:2604.05279](https://arxiv.org/abs/2604.05279)

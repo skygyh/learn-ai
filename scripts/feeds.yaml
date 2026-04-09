@@ -88,3 +88,8 @@ community:
     slug: simon-willison
     url: https://simonwillison.net/atom/everything/
     verified: true
+
+  - name: GitHub Trending
+    slug: github-trending
+    type: scrape
+    verified: true
