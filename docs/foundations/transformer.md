@@ -11,7 +11,7 @@ review:
 
 > Transformer 是当前几乎所有前沿语言模型的底层架构。本文档聚焦其核心机制的技术原理和设计权衡，不涉及具体模型。
 >
-> 相关文档：[KV Cache 与推理优化](./kv-cache.md) | [Mamba 与状态空间模型](./mamba-and-ssm.md) | [大语言模型概览](./large-language-models.md)
+> 相关文档：[KV Cache 与推理优化](./kv-cache.md) | [Mamba 与状态空间模型](./mamba-and-ssm.md)
 
 ???+ tip "推荐视频：3Blue1Brown 直观讲解 Transformer"
 
@@ -143,7 +143,45 @@ V:  (4×128)                — 4 个 token 的 Value 向量
 
 类比搜索引擎：你输入一个搜索词（Query），它和每个网页的标题（Key）算匹配度，然后按匹配度加权返回网页内容（Value）。区别在于 Q/K/V 都是从同一个输入学出来的，模型自己决定"问什么"和"答什么"。
 
-除以 `√d_k` 是为了防止点积过大导致 softmax 退化成 one-hot。**Multi-Head Attention (MHA)** 将 Q/K/V 拆分成多个头并行计算，最后拼接输出。为减少推理时的 KV Cache 内存，后续出现了 GQA（分组共享 KV 头）和 MLA（低秩 KV 压缩）等变体，详见 [KV Cache 与推理优化](./kv-cache.md)。
+除以 `√d_k` 是为了防止点积过大导致 softmax 退化成 one-hot。**Multi-Head Attention (MHA)** 将 Q/K/V 拆分成多个头并行计算，最后拼接输出。
+
+### GQA / MQA：共享 KV 头的变体
+
+标准 MHA 中每个 Q 头都有自己独立的一组 K 和 V。GQA（Grouped-Query Attention）和 MQA（Multi-Query Attention）的思路是：**强制让多个 Q 头共用同一组 KV**，减少 KV 的数量。分几组是训练前定好的超参数，模型从头训练来自适应这种约束。
+
+``` mermaid
+graph TB
+    subgraph MHA ["MHA — 每个 Q 头独占 KV"]
+        direction LR
+        Q1a["Q₁"] --- KV1a["KV₁"]
+        Q2a["Q₂"] --- KV2a["KV₂"]
+        Q3a["Q₃"] --- KV3a["KV₃"]
+        Q4a["Q₄"] --- KV4a["KV₄"]
+    end
+
+    subgraph GQA ["GQA — 每组 Q 头共享 KV"]
+        direction LR
+        Q1b["Q₁Q₂"] --- KV1b["KV₁"]
+        Q3b["Q₃Q₄"] --- KV2b["KV₂"]
+    end
+
+    subgraph MQA ["MQA — 所有 Q 头共用一组 KV"]
+        direction LR
+        Q1c["Q₁~Q₄"] --- KV1c["KV₁"]
+    end
+```
+
+**为什么共享 KV 不会严重损失质量？** 因为注意力的多样性主要靠 Q 提供。每个 Q 头仍然有自己独立的权重矩阵，所以不同 Q 头对同一个 token 会生成不同的 Query。不同的 Q 和同一组 K 做点积，得到的注意力分布也不同——类似几个人带着不同问题去同一个图书馆查资料，查到的内容自然不同：
+
+```
+共享同一组 KV，但 Q 不同 → 注意力分布不同 → 输出不同
+
+Q₁ · K^T = [0.7, 0.1, 0.1, 0.1]  → 主要关注第 1 个 token
+Q₂ · K^T = [0.1, 0.1, 0.1, 0.7]  → 主要关注第 4 个 token
+     ↑ 同一组 K                     ↑ 但结果完全不同
+```
+
+GQA/MQA 的主要动机是**减少推理时 KV Cache 的显存占用**——KV 头越少，需要缓存的向量越少。具体的缓存大小对比见 [KV Cache 与推理优化](./kv-cache.md)。
 
 ---
 

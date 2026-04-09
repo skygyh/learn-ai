@@ -1,277 +1,151 @@
 ---
 title: "多模态 AI (Multimodal AI)"
-description: "多模态 AI 是将文本、图像、音频、视频等多种信息形式统一理解和生成的技术。它代表了 AI 从单一文本走向全面感知的进化方向。"
+description: "文本、图像、音频、视频四种模态的数据特征差异，以及各自的离散化、生成与跨模态对齐技术路线。"
 created: 2026-04-07
-updated: 2026-04-07
-tags: [multimodal, vision-language, diffusion, video-generation, world-models]
+updated: 2026-04-09
+tags: [multimodal, vision-language, diffusion, audio, cross-modal-alignment]
 review:
 ---
 
 # 多模态 AI (Multimodal AI)
 
-> 多模态 AI 是将文本、图像、音频、视频等多种信息形式统一理解和生成的技术。它代表了 AI 从单一文本走向全面感知的进化方向。
+> 比较文本、图像、音频、视频四种核心模态的数据特征，以及 AI 处理它们的技术路线差异。
 
 ---
 
-## 1. 概述
+## 1. 模态特征一览
 
-### 什么是多模态 AI
+| 维度 | 文本 | 图像 | 音频 | 视频 |
+|------|------|------|------|------|
+| 数据结构 | 1D 离散序列 | 2D 连续网格 (H×W×C) | 1D 连续波形 | 3D (2D 空间 + 时间) |
+| 信息密度 | 高——一个词承载大量语义 | 中——像素级冗余大 | 低——高采样率，有效信息稀疏 | 极低——帧间大量重复 |
+| 天然离散性 | 是（词表有限） | 否（像素连续值） | 否（波形连续） | 否 |
+| 典型序列长度 | ~10³–10⁴ tokens | ~10²–10³ patches | ~10³–10⁴ codec tokens | ~10⁴–10⁶ |
+| 时间维度 | 无（或弱顺序） | 无 | 有，高分辨率 | 有，需帧间一致性 |
 
-多模态 AI 指能够处理和关联**多种数据模态**（文本、图像、音频、视频、3D等）的人工智能系统。相比纯文本 LLM，多模态模型能够：
-
-- **看**: 理解图像和视频内容
-- **听**: 识别和理解语音与声音
-- **说**: 生成自然语音
-- **创造**: 生成图像、视频、音乐
-
-### 为什么多模态重要
-
-人类的认知是天然多模态的——我们同时利用视觉、听觉、语言来理解世界。让 AI 具备类似能力是通向更通用智能的关键一步。
+核心差异：文本天然离散、语义密度高；图像/音频/视频是连续信号，需要先**离散化**才能送入 Transformer，而离散化策略直接决定模型的效果上限。
 
 ---
 
-## 2. 视觉-语言模型 (Vision-Language Models)
+## 2. 离散化：把连续信号变成 token
 
-### 主流模型
+这是多模态 AI 最核心的技术问题——如何把不同模态统一到 Transformer 能处理的 token 序列。
 
-| 模型 | 厂商 | 特点 |
+### 文本
+
+BPE / SentencePiece 等子词切分已是成熟方案，词表大小通常 32k–128k。文本是唯一**天然离散**的模态，无需额外编码。
+
+### 图像
+
+两条主路线：
+
+| 路线 | 代表 | 原理 | 权衡 |
+|------|------|------|------|
+| Patch 嵌入 | ViT[^dosovitskiy-2020-vit] | 将图像切成 16×16 patch，线性投影为向量 | 简单高效，但 patch 粒度限制细节 |
+| 离散码本 | VQ-VAE / VQ-GAN | 将图像编码为离散 token（码本索引） | 可用自回归生成，但码本大小限制保真度 |
+
+实践中，**理解**任务多用 patch 嵌入（CLIP、Gemini），**生成**任务多用 VAE 潜空间 + 扩散模型。
+
+### 音频
+
+| 路线 | 代表 | 原理 |
 |------|------|------|
-| **GPT-4o** | OpenAI | 原生多模态，文本/图像/音频统一 |
-| **GPT-5** | OpenAI | 增强的视觉理解能力 |
-| **Claude 3 系列** | Anthropic | 支持图像输入，强文档理解 |
-| **Gemini 系列** | Google | 从设计之初就是多模态，支持超长上下文 |
-| **LLaVA** | 开源 | 开源视觉语言模型先驱 |
-| **CogVLM** | 智谱AI | 开源视觉语言模型 |
-| **InternVL** | 上海AI Lab | 开源多模态大模型 |
+| 频谱 → patch | Whisper, AST | 波形 → mel 频谱图（2D）→ 按 ViT 方式切 patch |
+| 神经音频编码 | EnCodec, SoundStream | 将波形压缩为多层离散 token（残差向量量化, RVQ） |
 
-### 架构范式
+音频的采样率问题：16kHz 语音 1 秒 = 16,000 个采样点，直接处理不现实。频谱图将时域转为时频域，大幅降低序列长度；神经编码则进一步压缩到 ~50–75 token/秒。
 
-**范式一：视觉编码器 + LLM (早期方法)**
-```
-图像 → Vision Encoder (CLIP/ViT) → 投影层 → LLM → 文本输出
-```
+### 视频
 
-**范式二：原生多模态 (现代方法)**
-```
-图像/文本/音频 → 统一 Tokenizer → 统一 Transformer → 多模态输出
-```
+视频 = 图像序列 + 时间轴，数据量爆炸。关键是如何压缩时间冗余：
 
-Gemini 是"原生多模态"的代表——从预训练开始就处理多种模态，而非后期"嫁接"。
-
-### 典型应用场景
-
-- **文档理解**: 分析 PDF、表格、图表
-- **OCR 增强**: 识别和理解图中文字
-- **图表分析**: 理解数据可视化
-- **医学影像**: 辅助诊断
-- **UI 理解**: 理解界面截图，辅助自动化
+- **帧采样 + 独立编码**：抽关键帧，每帧按图像处理——简单但丢失运动信息
+- **3D patch**：将视频切成时空立方体（如 2 帧×16×16），一次编码空间+时间——Sora / DiT 的做法
+- **时间维度单独建模**：图像编码后加 temporal attention 层
 
 ---
 
-## 3. 文本生成图像 (Text-to-Image)
+## 3. 生成技术路线
 
-### 主流工具
+不同模态的生成方法差异很大，本质上由数据特征决定。
 
-| 工具 | 厂商 | 技术基础 | 特点 |
-|------|------|----------|------|
-| **DALL-E 3** | OpenAI | 扩散模型 | 与 ChatGPT 集成，自然语言控制 |
-| **Midjourney** | Midjourney | 扩散模型 | 艺术感强，社区活跃 |
-| **Stable Diffusion 3** | Stability AI | MMDiT 架构 | 开源，可本地运行 |
-| **Flux** | Black Forest Labs | Flow Matching | SD 团队新作，高质量 |
-| **Imagen 3** | Google | 扩散模型 | Gemini 生态内 |
-| **Nano Banana 2** | Google | 扩散模型 | Pro 级能力+快速生成 (2026.2) |
-| **Ideogram** | Ideogram | 扩散模型 | 文字渲染能力强 |
+### 文本：自回归
 
-### 核心技术：扩散模型 (Diffusion Models)
+逐 token 预测下一个，天然适配离散序列。Transformer decoder 是标准架构。
 
-扩散模型通过两个过程生成图像：
+### 图像：扩散模型
 
-**前向过程 (加噪)**:
+自回归在连续高维空间效果不佳，扩散模型成为主流[^ho-2020-ddpm]：
+
 ```
-清晰图像 → 逐步加入高斯噪声 → 纯噪声
-x₀ → x₁ → x₂ → ... → xₜ (纯噪声)
+前向：x₀ (清晰图) → 逐步加噪 → xₜ (纯噪声)
+反向：xₜ (纯噪声) → 学习去噪 → x₀ (生成图)
 ```
 
-**反向过程 (去噪)**:
-```
-纯噪声 → 逐步去噪 → 清晰图像
-xₜ → xₜ₋₁ → ... → x₁ → x₀ (生成的图像)
-```
+关键改进：
 
-关键论文：
-- **DDPM** (Ho et al., 2020): [arXiv:2006.11239](https://arxiv.org/abs/2006.11239)
-- **Latent Diffusion (Stable Diffusion)** (Rombach et al., 2022): [arXiv:2112.10752](https://arxiv.org/abs/2112.10752)
+- **Latent Diffusion**[^rombach-2022-ldm]：在 VAE 潜空间而非像素空间做扩散，计算量降低数十倍
+- **DiT (Diffusion Transformer)**：用 Transformer 替代 UNet 作为去噪骨干，更好地 scale——Sora 的核心架构
+- **Flow Matching**：更高效的采样路径，替代传统 DDPM 噪声调度
 
-### 精细控制技术
+### 视频：扩散 + 时间一致性
 
-| 技术 | 用途 |
-|------|------|
-| **ControlNet** | 通过边缘图、深度图等控制生成结构 |
-| **IP-Adapter** | 图像风格迁移和参考 |
-| **Img2Img** | 基于已有图像生成变体 |
-| **Inpainting** | 局部修改图像 |
-| **LoRA** | 风格微调，自定义主题 |
+在图像扩散基础上增加时间维度，但核心挑战不在生成质量而在**一致性**：
+
+- 帧间对象连贯（同一个人不能变脸）
+- 物理合理（重力、碰撞、流体）
+- 镜头运动平滑
+
+技术手段：3D 注意力（空间+时间联合 attention）、temporal super-resolution、运动先验。
+
+### 音频：自回归 + 扩散并存
+
+- **语音合成**：自回归预测 codec token（类似文本生成），或扩散模型在 mel 频谱空间生成
+- **音乐生成**：多数用扩散模型，因为音乐的频谱结构更接近"图像"
 
 ---
 
-## 4. 文本生成视频 (Text-to-Video)
+## 4. 跨模态对齐
 
-### 主流模型
+让不同模态的表示映射到同一向量空间，是多模态理解的基础。
 
-| 模型 | 厂商 | 发布时间 | 特点 |
-|------|------|----------|------|
-| **Sora** | OpenAI | 2024 | 标志性产品，物理世界模拟 |
-| **Veo 3.1** | Google | 2026.1 | "Ingredients to Video"，更高一致性和控制 |
-| **Veo 2** | Google | 2025 | 高质量视频生成 |
-| **Runway Gen-3** | Runway | 2024 | 商业视频生成先驱 |
-| **Kling** | 快手 | 2024 | 中国代表，物理效果好 |
-| **Pika** | Pika Labs | 2024 | 简洁易用 |
-| **Hailuo/MiniMax** | MiniMax | 2024 | 中国视频生成模型 |
+### 对比学习
 
-### 核心挑战
+**CLIP**[^radford-2021-clip]：用大量 (图像, 文本) 对做对比学习——匹配的图文对在向量空间靠近，不匹配的推远。训练后图像和文本共享同一嵌入空间，可以做零样本分类、检索等。
 
-1. **时间一致性**: 视频帧之间的连贯性
-2. **物理合理性**: 遵守物理定律（重力、碰撞等）
-3. **长视频生成**: 保持长时间的叙事连贯
-4. **可控性**: 精确控制镜头运动、角色动作
-5. **计算成本**: 视频生成的算力需求远超图像
+**ImageBind (Meta)**：将 CLIP 思路扩展到六种模态（图像、文本、音频、深度、热成像、IMU），利用图像作为"锚点"桥接所有模态。
 
-### 技术路线
+### 投影层拼接
 
-- **扩散模型 + 时间维度**: 在图像扩散的基础上增加时间轴
-- **DiT (Diffusion Transformer)**: 用 Transformer 替代 UNet，Sora 的核心架构
-- **Flow Matching**: 更高效的生成路径
+早期多模态模型（LLaVA 等）的做法：
 
----
-
-## 5. 音频与语音
-
-### 语音识别 (ASR)
-
-| 模型 | 厂商 | 特点 |
-|------|------|------|
-| **Whisper** | OpenAI | 开源，多语言，鲁棒性强 |
-| **Gemini Audio** | Google | 原生音频理解 (2026.3 更自然可靠) |
-| **Conformer** | Google | 混合 CNN+Transformer |
-
-### 语音合成 (TTS)
-
-| 模型 | 厂商 | 特点 |
-|------|------|------|
-| **OpenAI TTS** | OpenAI | 高自然度，多种音色 |
-| **ElevenLabs** | ElevenLabs | 克隆音色，情感表达 |
-| **Gemini Live** | Google | 实时对话，自然交互 (Gemini 3.1 Flash Live) |
-| **CosyVoice** | 阿里 | 开源中文语音合成 |
-
-### 音乐生成
-
-| 模型 | 厂商 | 特点 |
-|------|------|------|
-| **Lyria 3 Pro** | Google | 2026.3 发布，更长曲目，更多风格 |
-| **Suno** | Suno AI | AI 歌曲生成，含人声 |
-| **Udio** | Udio | 高质量音乐生成 |
-| **Stable Audio** | Stability AI | 开源音频/音乐生成 |
-
----
-
-## 6. 世界模型 (World Models)
-
-世界模型是 AI 领域最前沿的方向之一——让 AI 不仅理解文本和图像，还能理解和模拟**物理世界**。
-
-### Google DeepMind 最新进展
-
-| 项目 | 时间 | 说明 |
-|------|------|------|
-| **Genie 3** | 2026.1 | 生成和探索互动虚拟世界 |
-| **SIMA 2** | 2026 | 能玩游戏、推理、学习的智能体 |
-| **Gemini Robotics** | 2026 | 感知、推理、使用工具和交互 |
-| **D4RT** | 2026.1 | 教 AI 在四维空间中理解场景 |
-
-### Genie 3: 互动世界生成
-
-Genie 3 能够从文本、图像或视频描述生成**可互动的 3D 世界**。用户可以在生成的世界中自由探索，AI 实时渲染新的内容。这代表了从"内容生成"到"世界生成"的跨越。
-
-### 具身智能 (Embodied AI)
-
-Gemini Robotics 将 Gemini 的多模态理解能力带入物理世界：
-- **感知**: 通过摄像头和传感器理解环境
-- **推理**: 制定行动计划
-- **执行**: 操控机器人完成任务
-- **学习**: 从交互中不断改进
-
----
-
-## 7. 多模态融合的挑战
-
-### 跨模态对齐
-
-不同模态的信息如何在统一的表示空间中对齐？
-
-- **CLIP (OpenAI)**: 通过对比学习对齐图文表示
-- **ImageBind (Meta)**: 将六种模态对齐到统一空间
-- **原生多模态训练**: Gemini 的方法——从头训练时就混合多种模态
-
-### 多模态幻觉
-
-模型可能"看到"图像中不存在的内容：
-- 物体计数错误
-- 空间关系判断失误
-- 将不存在的文字读出来
-
-### 评估困难
-
-- 缺乏统一的多模态评估基准
-- 不同模态的质量难以跨模态比较
-- 人类评估成本高
-
----
-
-## 8. 发展趋势
-
-### 8.1 原生多模态
-
-**趋势**: 从"先训练文本模型再加视觉"转向"从一开始就训练多模态模型"
-
-- GPT-4o 和 Gemini 代表了这一方向
-- 原生多模态在跨模态理解上更自然
-
-### 8.2 实时多模态交互
-
-- Gemini Live: 实时语音对话
-- GPT-4o 语音模式: 低延迟语音交互
-- 未来: 视频通话级别的实时多模态 AI
-
-### 8.3 Omni-Model
-
-一个模型处理所有模态：
 ```
-文本 ↘
-图像 → 统一 Omni-Model → 任意模态输出
-音频 ↗
-视频 ↗
+图像 → 冻结的视觉编码器 (CLIP ViT) → 线性投影 → 拼入 LLM token 序列
 ```
 
-### 8.4 生成质量飞速提升
+简单有效，但视觉编码器和 LLM 分别训练，跨模态理解存在 gap。
 
-- 图像生成已接近摄影级别
-- 视频生成从几秒到几分钟
-- 音乐生成已可用于商业场景
-- 3D 生成正在快速追赶
+### 原生多模态训练
 
-### 8.5 伦理与安全
+Gemini、GPT-4o 的做法：从预训练开始就混合多种模态数据联合训练，模型内部学习对齐。好处是跨模态理解更自然，代价是训练数据工程和算力成本极高。
 
-- Deepfake 检测技术
-- 内容溯源 (Content Provenance)
-- C2PA 标准: 为 AI 生成内容添加水印
-- Google DeepMind: "保护人们免受有害操纵" (2026.3)
+---
+
+## 5. 开放问题
+
+- **多模态幻觉**：模型"看到"图像中不存在的内容（物体计数错误、空间关系误判）——比纯文本幻觉更难检测
+- **评估**：缺乏统一的跨模态评估基准，图像/音频/视频的质量难以用同一把尺子衡量
+- **长视频理解**：当前模型对短片段理解不错，但对几分钟以上视频的长程推理仍困难
+- **统一生成**：Omni-Model（一个模型同时理解和生成所有模态）仍处早期，跨模态生成质量不均衡
 
 ---
 
 ## 参考资料
 
-- Radford et al., "Learning Transferable Visual Models From Natural Language Supervision" (CLIP), 2021 - [arXiv:2103.00020](https://arxiv.org/abs/2103.00020)
-- Rombach et al., "High-Resolution Image Synthesis with Latent Diffusion Models", 2022 - [arXiv:2112.10752](https://arxiv.org/abs/2112.10752)
-- Ho et al., "Denoising Diffusion Probabilistic Models", 2020 - [arXiv:2006.11239](https://arxiv.org/abs/2006.11239)
-- OpenAI Sora: https://openai.com/sora
-- Google Veo: https://deepmind.google/models/veo/
-- Google Genie: https://deepmind.google/models/genie/
+[^dosovitskiy-2020-vit]: Dosovitskiy et al. *An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale*. 2020. https://arxiv.org/abs/2010.11929
+
+[^ho-2020-ddpm]: Ho et al. *Denoising Diffusion Probabilistic Models*. 2020. https://arxiv.org/abs/2006.11239
+
+[^rombach-2022-ldm]: Rombach et al. *High-Resolution Image Synthesis with Latent Diffusion Models*. 2022. https://arxiv.org/abs/2112.10752
+
+[^radford-2021-clip]: Radford et al. *Learning Transferable Visual Models From Natural Language Supervision*. 2021. https://arxiv.org/abs/2103.00020
