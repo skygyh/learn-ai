@@ -108,6 +108,7 @@ Execute:
 | **Semantic Kernel** | Microsoft | C#/Python | 企业级 AI 集成 | .NET 生态 |
 | **Dify** | Dify | Python | 低代码 AI 平台 | 快速原型开发 |
 | **Coze** | 字节跳动 | - | 低代码 Bot 平台 | 快速构建 Bot |
+| **NeMo Agent Toolkit** | NVIDIA | Python | 跨框架 Agent 可观测性与编排 | 多框架 Agent 优化 |
 
 ### LangGraph 示例
 
@@ -143,6 +144,29 @@ graph.add_edge("tools", "agent")
 | **Google Antigravity** | Google | Agent 开发平台 |
 | **Assistants API** | OpenAI | 自定义 Agent 构建 API |
 | **Claude Managed Agents** | Anthropic | 托管式 Agent 部署，号称 10× 更快上线 (2026.4) |
+
+### NVIDIA Agent 技术栈
+
+NVIDIA 在 Agent 领域的布局聚焦于**基础设施层**——不造又一个 Agent 框架，而是解决"Agent 怎么安全运行、怎么跨框架优化"的工程问题[^nvidia-agent-toolkit]。
+
+**NeMo Agent Toolkit**（原 AIQ Toolkit，2.2k stars）：核心设计是 **function-as-a-service**——将 Agent、工具、子 Agent、整个工作流统一抽象为 `fn(input) → output` 的可调用函数，无论底层是 LangChain、CrewAI 还是原生 Python 都表现为同一接口。这使得：
+- 跨框架 Agent 系统的 **token 用量、延迟、成本** 可以在统一的 profiling 链路中追踪
+- 工作流通过 YAML 配置组合，**替换组件无需改代码**
+- 定位是"元框架"（meta-framework），坐在 LangChain/CrewAI 之上做可观测性和优化
+
+**OpenShell**[^nvidia-openshell]：Agent 安全运行时（alpha）。核心问题：自主 Agent 拥有文件访问、网络请求、代码执行等能力，如何防止越权？OpenShell 的方案是 **声明式策略驱动的沙箱**——Agent 在隔离容器中运行，通过策略文件声明允许的文件路径、网络出口、可调用的 API。技术亮点：
+- 推理路由：将 API 调用透明路由到本地/自托管后端，避免敏感数据泄露到外部服务
+- OCSF 格式日志导出：沙箱内所有 Agent 行为（文件操作、网络请求、推理调用）以 [OCSF](https://ocsf.io/) 标准格式记录，可对接企业安全信息系统
+- 支持主流 Agent：Claude Code、OpenClaw、Codex 等
+
+**NemoClaw**[^nvidia-nemoclaw]：OpenShell 之上的**参考栈**（alpha），将 OpenClaw（always-on 助手）+ OpenShell（安全沙箱）+ Nemotron（开源推理模型）打包为一键启动的完整方案，简化了"我想安全地跑一个持久 Agent"的端到端流程。
+
+```
+NemoClaw（参考栈，一键启动）
+  ├── OpenClaw（always-on 助手 Agent）
+  ├── OpenShell（安全沙箱 + 策略引擎）
+  └── Nemotron（本地推理模型）
+```
 
 ---
 
@@ -360,3 +384,6 @@ Agent 直接操作计算机界面：
 - MCP Specification: https://spec.modelcontextprotocol.io/
 - LangGraph Documentation: https://langchain-ai.github.io/langgraph/
 [^apple-2026-governance]: Apple Machine Learning. "Governance-Aware Agent Telemetry for Closed-Loop Enforcement in Multi-Agent AI Systems". 2026. https://machinelearning.apple.com/research/governance-aware-agent-telemetry
+[^nvidia-agent-toolkit]: NVIDIA. NeMo Agent Toolkit. https://github.com/NVIDIA/NeMo-Agent-Toolkit
+[^nvidia-openshell]: NVIDIA. OpenShell — Safe, private runtime for autonomous AI agents. https://github.com/NVIDIA/OpenShell
+[^nvidia-nemoclaw]: NVIDIA. NemoClaw — Open source reference stack for always-on assistants. https://github.com/NVIDIA/NemoClaw

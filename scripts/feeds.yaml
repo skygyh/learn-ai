@@ -57,6 +57,11 @@ industry:
     url: https://blogs.nvidia.com/feed/
     verified: true
 
+  - name: NVIDIA Developer Blog
+    slug: nvidia-dev
+    url: https://developer.nvidia.com/blog/feed/
+    verified: true
+
   - name: Apple Machine Learning
     slug: apple-ml
     url: https://machinelearning.apple.com/rss.xml

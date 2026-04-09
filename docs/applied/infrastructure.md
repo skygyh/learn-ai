@@ -176,6 +176,13 @@ GPU 间通信层级：
 | **SGLang** | LMSYS | 结构化生成优化 | 结构化输出 |
 | **MLC-LLM** | CMU | 跨平台优化 | 移动端/浏览器 |
 
+**TensorRT-LLM 技术要点**[^trtllm-github]：TensorRT-LLM 于 2025.3 完全开源，是 NVIDIA 推理栈中优化最深的一层。几项值得关注的工程创新：
+
+- **XQA kernel**：为 GQA/MQA 定制的 decode attention kernel，最大化内存带宽利用率（GQA head ratio 越高效果越明显）
+- **Expert Parallelism 通信优化**：MoE 模型的 All-to-All 通信改用 NVLink 上的 one-sided 操作，通信开销 < 5%
+- **DWDP (Distributed Weight Data Parallelism)**：NVL72 场景下将权重在所有 GPU 间分片，每块 GPU 只存部分权重 + 全量 KV Cache，解决超大模型在 rack-scale 系统上的显存分配矛盾
+- **Sparse Attention**：支持稀疏注意力模式（如 Sliding Window + Global Token），在长上下文推理中减少计算量而不显著降低质量
+
 ### 4.3 vLLM 示例
 
 ```python
@@ -207,6 +214,53 @@ curl http://localhost:11434/api/generate -d '{
   "model": "llama3.1",
   "prompt": "什么是机器学习？"
 }'
+```
+
+### 4.5 数据中心级推理编排 — NVIDIA Dynamo
+
+单机推理框架（vLLM、TensorRT-LLM、SGLang）优化的是单个 GPU 或单节点。当推理扩展到多节点 GPU 集群时，核心矛盾变为：Prefill（计算密集）与 Decode（带宽密集）争夺 GPU 资源、相同前缀请求被路由到不同 Worker 导致 KV Cache 冗余计算、新增副本冷启动慢。
+
+[NVIDIA Dynamo](https://github.com/ai-dynamo/dynamo)（Rust 核心 + Python 绑定，70+ 社区贡献者）是这些推理引擎之上的**编排层**——不替代 vLLM/TensorRT-LLM/SGLang，而是将它们编排为协调的多节点推理系统[^dynamo-github]。三项关键技术创新：
+
+**分离式 Prefill/Decode (Disaggregated Serving)**：将 Prefill 和 Decode 分配到独立可扩缩的 GPU 池。通过 NIXL（NVIDIA Inter-node eXchange Library）做点对点 KV Cache 传输，按层流水线化——第一层传输完成 Decode Worker 即可开始计算，无需等全部层传完。Prefill GPU 算力利用率从聚合模式的 ~40% 提升至 ~80%+。权衡：KV Cache 传输引入 5-20ms 额外延迟，对短序列不划算；对节点间带宽要求高（推荐 InfiniBand NDR）。
+
+**KV Cache 感知路由**：Router 维护全局 Radix Tree 索引，记录每个 Worker 上已缓存的 KV Cache 块。收到请求时做最长前缀匹配，综合 `KV 命中长度 × 权重 + Worker 负载 × 权重` 做软亲和性路由。多轮对话场景 KV Cache 命中率 80-95%，TTFT 降低 2x。索引采用最终一致性，可能出现短暂次优路由。
+
+**ModelExpress 快速冷启动**：通过 NIXL/NVLink 在 GPU 之间流式传输模型权重（非从磁盘加载），新增副本启动速度快 7x（DeepSeek-V3 on H200）。
+
+**KVBM (KV Block Manager)**：多层 KV Cache 卸载——GPU → CPU → SSD → 远程存储（S3/Azure Blob），突破 GPU 显存对上下文长度的限制。
+
+| 指标 | 数据 | 场景 |
+|------|------|------|
+| 单 GPU 吞吐提升 | **7x** | DeepSeek R1, GB200 NVL72 vs 单卡 B200 |
+| TTFT 加速 | **2x** | KV 感知路由, Qwen3-Coder 480B |
+| SLA 违约减少 | **80%** | Planner 自动扩缩, TCO 仅高 5% |
+| 模型冷启动加速 | **7x** | ModelExpress, DeepSeek-V3 on H200 |
+
+### 4.6 NVIDIA NIM — 推理微服务
+
+NIM 解决的是从实验室到生产部署的"最后一公里"工程复杂度。核心思路是 **Model Profile**——每个 NIM 容器内含针对特定 GPU 型号的预编译 TensorRT 引擎，启动时自动检测硬件并选择最优配置，将"选引擎→编译模型→配量化→设并行→建服务"的数天流程压缩为一条 `docker run`[^nvidia-nim-docs]。
+
+技术上值得关注的设计决策：
+- **OpenAI 兼容 API**：零改动迁移现有应用
+- **LoRA 热加载**：运行时动态切换 adapter，无需重启服务
+- **覆盖域广**：LLM、VLM、Embedding、Reranking、ASR/TTS、蛋白质结构预测等均有对应 NIM，底层引擎各异（TensorRT-LLM、Triton、RIVA 等）
+
+NIM 是闭源容器（NVIDIA AI Enterprise 许可），但底层完全建立在开源组件上。权衡：一键部署的便利 vs 可调试性和自定义空间的限制。
+
+### 4.7 NVIDIA 推理栈全貌
+
+```
+┌─────────────────────────────────────────────────────┐
+│  NIM 微服务 — 面向应用开发者：一键部署，API 调用      │
+├─────────────────────────────────────────────────────┤
+│  Dynamo 编排层 — 面向平台工程师：集群调度与路由       │
+├─────────────────────────────────────────────────────┤
+│  推理引擎 (TensorRT-LLM / vLLM / SGLang)            │
+│  — 面向 ML 工程师：模型优化、量化、多 GPU 并行        │
+├─────────────────────────────────────────────────────┤
+│  CUTLASS / CuTe — 面向 CUDA 开发者：矩阵运算核心库   │
+└─────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -333,6 +387,18 @@ ONNX (Open Neural Network Exchange) 提供模型格式标准化：
 - 硬件无关的优化
 - ONNX Runtime 提供高效推理
 
+### 7.4 CUTLASS 与 CuTe DSL — GPU 矩阵运算核心库
+
+[CUTLASS](https://github.com/NVIDIA/cutlass)（v4.5, 2026.3, 9.5k stars）解决的是**高性能 GPU 矩阵运算的可编程性困境**：cuBLAS 性能极高但不可定制（黑盒），手写 CUDA kernel 可定制但极难达到峰值性能[^cutlass-github]。CUTLASS 提供开源 C++ 模板库，在接近 cuBLAS 性能（Blackwell 上峰值利用率 >98%）的同时支持自定义和算子融合。
+
+**CuTe（CUDA Tensors）——CUTLASS 3.x 的核心抽象**：用数学化的 `Layout = Shape × Stride` 表示张量在内存中的排列，通过 `composition`、`complement`、`product` 等操作在编译期推导内存访问模式，将 Tensor Core 指令和内存拷贝抽象为可组合的 Atom。这让开发者聚焦于算法的逻辑描述，而非手动索引计算。
+
+**CuTe DSL——CUTLASS 4 的突破**：Python 原生接口编写高性能 CUDA kernel，**无性能妥协**。完全对应 CuTe C++ 的 Layout/Tensor/Atom 概念，但编译速度快数个数量级，且原生集成 DL 框架无需胶水代码。
+
+支持数据类型覆盖 FP64 → FP32 → TF32 → FP16/BF16 → FP8 (e5m2/e4m3) → NVFP4/MXFP4/MXFP6/MXFP8 → INT8/INT4 → Binary 1b，横跨 Volta 到 Blackwell 全部架构。CUTLASS 是 TensorRT-LLM 和 Flash Attention 的底层计算引擎——基于 CUTLASS 的 FlashAttention-2 在 H100 上达到 ~330 TFLOPS 有效吞吐。
+
+关键工程权衡：深度使用 C++ 模板元编程实现零运行时开销，但代价是编译时间极长且错误信息难读（CuTe DSL 正是为此而生的 Python 替代方案）；每代 GPU 架构（SM70–SM100）有专属实现以充分利用硬件特性（如 Hopper TMA、Blackwell Green Context），但大幅增加了代码维护量。
+
 ---
 
 ## 8. 成本优化
@@ -422,3 +488,7 @@ ONNX (Open Neural Network Exchange) 提供模型格式标准化：
 - Ollama: https://ollama.com/
 - Yuan et al., "MegaTrain: Full Precision Training of 100B+ Parameter Large Language Models on a Single GPU", 2026 - [arXiv:2604.05091](https://arxiv.org/abs/2604.05091)
 - "Multi-Drafter Speculative Decoding with Alignment Feedback", 2026 - [arXiv:2604.05417](https://arxiv.org/abs/2604.05417)
+[^trtllm-github]: NVIDIA. TensorRT-LLM. https://github.com/NVIDIA/TensorRT-LLM
+[^dynamo-github]: NVIDIA. Dynamo — The open-source, datacenter-scale inference stack. https://github.com/ai-dynamo/dynamo
+[^nvidia-nim-docs]: NVIDIA. NIM Documentation. https://docs.nvidia.com/nim/
+[^cutlass-github]: NVIDIA. CUTLASS — CUDA Templates for Linear Algebra Subroutines. https://github.com/NVIDIA/cutlass
