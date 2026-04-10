@@ -1,3 +1,29 @@
+/* ---------- Custom palette: #FF5C77 primary + #FFB300 accent ---------- */
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color:               #FF5C77;
+  --md-primary-fg-color--light:        #FF8A9E;
+  --md-primary-fg-color--dark:         #E84862;
+  --md-accent-fg-color:                #FFB300;
+  --md-accent-fg-color--transparent:   rgba(255, 179, 0, 0.1);
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color:               #D4748A;
+  --md-primary-fg-color--light:        #E08A9E;
+  --md-primary-fg-color--dark:         #B8606F;
+  --md-accent-fg-color:                #E5A830;
+  --md-accent-fg-color--transparent:   rgba(229, 168, 48, 0.1);
+}
+
+/* Dark mode: muted header & tabs so the solid bar doesn't glare */
+[data-md-color-scheme="slate"] .md-header {
+  background-color: #663548;
+}
+[data-md-color-scheme="slate"] .md-tabs {
+  background-color: #582D3D;
+}
+
+/* ---------- Video embed ---------- */
 .video-wrapper {
   position: relative;
   padding-bottom: 56.25%; /* 16:9 aspect ratio */

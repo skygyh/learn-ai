@@ -11,9 +11,15 @@ description: 通用型个人 AI Agent 产品档案——聚焦跨会话学习、
 
 ## 产品列表
 
-| 产品 | 厂商 | 核心区分点 |
-|------|------|-----------|
-| [Hermes Agent](hermes-agent.md) | Nous Research | 闭环学习循环：自动创建 Skill → 使用中自我改进 → 跨会话持久化 |
+<div class="grid cards" markdown>
+
+- :material-assistant: **[Hermes Agent](hermes-agent.md)**
+
+    ---
+
+    Nous Research · 闭环学习循环：自动创建 Skill → 使用中自我改进 → 跨会话持久化
+
+</div>
 
 ## 品类共性
 

@@ -7,6 +7,12 @@ description: AI 行业全景——模型发布跟踪、趋势分析。
 
 跟踪主流 AI 模型的最新发布与行业动态。
 
-| 内容 | 说明 |
-|------|------|
-| [模型动态跟踪](model-tracker.md) | 闭源/开源模型发布时间线、关键参数与亮点 |
+<div class="grid cards" markdown>
+
+- :material-chart-line: **[模型动态跟踪](model-tracker.md)**
+
+    ---
+
+    闭源/开源模型发布时间线、关键参数与亮点
+
+</div>

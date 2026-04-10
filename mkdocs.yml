@@ -11,15 +11,15 @@ theme:
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: indigo
-      accent: indigo
+      primary: pink
+      accent: amber
       toggle:
         icon: material/brightness-7
         name: 切换到暗色模式
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: indigo
-      accent: indigo
+      primary: pink
+      accent: amber
       toggle:
         icon: material/brightness-4
         name: 切换到亮色模式
@@ -29,9 +29,9 @@ theme:
   features:
     - navigation.tabs
     - navigation.sections
-    - navigation.expand
     - navigation.top
     - navigation.indexes
+    - navigation.path
     - search.suggest
     - search.highlight
     - content.code.copy
@@ -45,6 +45,8 @@ plugins:
       lang:
         - zh
         - en
+  - social:
+      enabled: !ENV [CI, false]
 
 markdown_extensions:
   - footnotes
@@ -63,6 +65,9 @@ markdown_extensions:
   - pymdownx.mark
   - pymdownx.tilde
   - pymdownx.caret
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - attr_list
   - md_in_html
   - toc:
