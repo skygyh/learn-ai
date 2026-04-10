@@ -79,6 +79,10 @@ nav:
   - 应用技术:
     - applied/index.md
     - AI Agent 智能体: applied/ai-agents.md
+    - Agent 记忆系统: applied/memory-systems.md
+    - Agent 工具接入: applied/agent-tools.md
+    - Agent Skills: applied/agent-skills.md
+    - Agent 间协议: applied/agent-protocols.md
     - Agent Hooks: applied/agent-hooks.md
     - Subagent 实践: applied/subagents.md
     - 提示工程: applied/prompt-engineering.md
@@ -89,6 +93,15 @@ nav:
     - 推理与规划: research/reasoning-and-planning.md
     - AI 安全与治理: research/safety-and-governance.md
     - 新兴前沿方向: research/emerging-frontiers.md
+  - Agent 框架:
+    - agent-frameworks/index.md
+    - LangGraph: agent-frameworks/langgraph.md
+    - AutoGen: agent-frameworks/autogen.md
+    - CrewAI: agent-frameworks/crewai.md
+    - Semantic Kernel: agent-frameworks/semantic-kernel.md
+    - Dify: agent-frameworks/dify.md
+    - Coze: agent-frameworks/coze.md
+    - NeMo Agent Toolkit: agent-frameworks/nemo-agent-toolkit.md
   - 产品档案:
     - coding-agents/index.md
     - Cursor: coding-agents/cursor.md

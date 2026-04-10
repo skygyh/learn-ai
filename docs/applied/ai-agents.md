@@ -1,381 +1,270 @@
 ---
 title: AI Agent 智能体
-description: AI Agent 是 2024-2026 年最热门的 AI 方向之一。从简单的聊天机器人进化为能够自主规划、使用工具、执行复杂任务的智能体。
+description: Agent 的核心在于循环——感知、推理、行动、观察的持续迭代。本文聚焦 Agent 生命周期与执行循环的技术本质。
 created: 2026-04-07
-updated: 2026-04-09
-tags: [agents, react, mcp, a2a, code-agents, multi-agent]
-review:
+updated: 2026-04-10
+tags: [agents, react, lifecycle, planning, reflexion]
+review: 2026-04-10
 ---
 
 # AI Agent 智能体
 
-> AI Agent 是 2024-2026 年最热门的 AI 方向之一。从简单的聊天机器人进化为能够自主规划、使用工具、执行复杂任务的智能体。
+> Agent 的本质不是"一个聪明的模型"，而是**一个循环**——让 LLM 反复经历"思考 → 行动 → 观察"直至任务完成。
 
 ---
 
-## 1. 概述
-
-### 什么是 AI Agent
-
-AI Agent (智能体) 是一个以大语言模型为"大脑"，能够**自主感知环境、制定计划、使用工具、执行行动**的系统。与传统的单轮问答不同，Agent 能够：
-
-- 分解复杂任务为多个步骤
-- 调用外部工具（搜索、代码执行、API 等）
-- 根据执行结果动态调整计划
-- 维护长期记忆
-
-### Agent 核心公式
+## 1. 核心公式
 
 ```
-Agent = LLM (推理引擎) + Memory (记忆) + Tools (工具) + Planning (规划)
+Agent = LLM（推理引擎）+ 循环（执行框架）+ 工具（外部能力）+ 记忆（状态持久化）
 ```
 
-### 为什么 Agent 如此重要
-
-- **从对话到行动**: LLM 不再只是回答问题，而是直接完成任务
-- **复杂任务自动化**: 将多步骤工作流自动化
-- **连接真实世界**: 通过工具调用与外部系统交互
-- **自主改进**: 通过反思和反馈不断优化执行
+关键区分：**LLM 是无状态的函数调用，Agent 是有状态的循环系统。** 单次 LLM 调用只做推理；Agent 的价值在于将推理嵌入一个持续运转的执行循环中，让模型能根据环境反馈不断修正行为。
 
 ---
 
-## 2. Agent 架构
+## 2. 最简 Agent 循环
 
-### 2.1 ReAct 模式 (Reasoning + Acting)
-
-[ReAct (Yao et al., 2022)](https://arxiv.org/abs/2210.03629) 是最经典的 Agent 架构，交替进行推理和行动：
+先看最朴素的 Agent 循环长什么样。以"查天气"为例——用户问"北京今天天气怎么样？"，Agent 需要调用天气 API 才能回答：
 
 ```
-Thought: 我需要查找今天的天气
-Action: search("今天北京天气")
-Observation: 北京今天晴，最高温度 25°C
-Thought: 我已获得天气信息，可以回答用户了
-Action: respond("北京今天晴天，最高温 25°C")
+[System Prompt] 你是一个天气助手。调用工具获取实时数据后回答，不要编造。
+[Tools]         get_weather(city, date) — 查询指定城市的天气
+
+用户: 北京今天天气怎么样？
+
+── 循环第 1 轮 ──────────────────────────
+[Act]     调用 get_weather("北京")
+[Observe] 返回：晴，最高 25°C，最低 14°C
+[判断]    已拿到所需信息 → 退出循环
+
+Agent: 北京今天晴，最高 25°C，最低 14°C。
 ```
 
-### 2.2 Plan-and-Execute
+这就是 Agent 循环的最小形态——**Act → Observe → 判断是否结束**：
 
-先制定完整计划，再逐步执行：
-
-```
-Plan:
-  1. 搜索相关论文
-  2. 阅读论文摘要
-  3. 总结关键发现
-  4. 生成报告
-
-Execute:
-  Step 1: [执行搜索] → 找到 5 篇相关论文
-  Step 2: [阅读摘要] → 提取关键信息
-  Step 3: [总结] → 归纳 3 个主要发现
-  Step 4: [生成报告] → 输出 Markdown 报告
+```mermaid
+graph LR
+    A[Act: 调用工具] --> B[Observe: 接收结果]
+    B --> C{完成？}
+    C -->|否| A
+    C -->|是| D[输出答案]
 ```
 
-### 2.3 Reflexion (自我反思)
-
-[Reflexion (Shinn et al., 2023)](https://arxiv.org/abs/2303.11366) 让 Agent 从失败中学习：
+再看一个需要多轮的例子——"对比北京和上海明天的天气"：
 
 ```
-尝试 → 失败 → 反思（为什么失败？）→ 改进策略 → 重新尝试
+── 循环第 1 轮 ──────────────────────────
+[Act]     调用 get_weather("北京", "明天")
+[Observe] 返回：多云，22°C / 13°C
+
+── 循环第 2 轮 ──────────────────────────
+[Act]     调用 get_weather("上海", "明天")
+[Observe] 返回：小雨，19°C / 15°C
+[判断]    两个城市数据都拿到了 → 退出循环
+
+Agent: 明天北京多云 22°C，上海小雨 19°C。北京更暖和且不下雨。
 ```
 
-### 2.4 记忆系统
+循环的价值就体现出来了：**一次 LLM 调用搞不定的事，多轮迭代就能搞定。**
 
-| 记忆类型 | 实现方式 | 用途 |
-|----------|----------|------|
-| **短期记忆** | 上下文窗口 | 当前对话/任务上下文 |
-| **长期记忆** | 向量数据库 | 持久化知识和经验 |
-| **情景记忆** | 结构化存储 | 过往交互经验 |
-| **工作记忆** | 临时缓冲区 | 当前任务的中间状态 |
+但这个朴素循环有几个明显的短板：
 
-**最新研究** (2026 年 4 月 arXiv):
-
-- **MemMachine**: 保留真实信息的记忆系统，防止 Agent 记忆失真
-- **SuperLocalMemory V3.3**: 受生物学启发的遗忘机制 + 认知量化 + 多通道检索
-- **Memory Intelligence Agent**: 智能记忆管理的多Agent系统
-
----
-
-## 3. 主流 Agent 框架
-
-### 框架对比
-
-| 框架 | 厂商 | 语言 | 特点 | 适用场景 |
-|------|------|------|------|----------|
-| **LangChain** | LangChain | Python/JS | 生态最全，组件丰富 | 通用 Agent 开发 |
-| **LangGraph** | LangChain | Python/JS | 基于图的工作流 | 复杂多步骤流程 |
-| **AutoGen** | Microsoft | Python | 多 Agent 对话框架 | 多 Agent 协作 |
-| **CrewAI** | CrewAI | Python | 角色扮演 Agent | 团队协作模拟 |
-| **Semantic Kernel** | Microsoft | C#/Python | 企业级 AI 集成 | .NET 生态 |
-| **Dify** | Dify | Python | 低代码 AI 平台 | 快速原型开发 |
-| **Coze** | 字节跳动 | - | 低代码 Bot 平台 | 快速构建 Bot |
-| **NeMo Agent Toolkit** | NVIDIA | Python | 跨框架 Agent 可观测性与编排 | 多框架 Agent 优化 |
-
-### LangGraph 示例
-
-```python
-from langgraph.graph import StateGraph, MessagesState
-from langchain_openai import ChatOpenAI
-
-# 定义 Agent 状态和节点
-def agent_node(state: MessagesState):
-    llm = ChatOpenAI(model="gpt-5")
-    response = llm.invoke(state["messages"])
-    return {"messages": [response]}
-
-def tool_node(state: MessagesState):
-    # 执行工具调用
-    ...
-
-# 构建图
-graph = StateGraph(MessagesState)
-graph.add_node("agent", agent_node)
-graph.add_node("tools", tool_node)
-graph.add_edge("agent", "tools")
-graph.add_edge("tools", "agent")
-```
-
-### 商业 Agent 产品
-
-| 产品 | 厂商 | 说明 |
-|------|------|------|
-| **Codex** | OpenAI | GPT-5.3-Codex 驱动，按需定价 (2026.4) |
-| **Claude Code** | Anthropic | 端到端编程Agent，企业版可用 |
-| **Claude Cowork** | Anthropic | 协作式 AI 助手 |
-| **Google Antigravity** | Google | Agent 开发平台 |
-| **Assistants API** | OpenAI | 自定义 Agent 构建 API |
-| **Claude Managed Agents** | Anthropic | 托管式 Agent 部署，号称 10× 更快上线 (2026.4) |
-
-### NVIDIA Agent 技术栈
-
-NVIDIA 在 Agent 领域的布局聚焦于**基础设施层**——不造又一个 Agent 框架，而是解决"Agent 怎么安全运行、怎么跨框架优化"的工程问题[^nvidia-agent-toolkit]。
-
-**NeMo Agent Toolkit**（原 AIQ Toolkit，2.2k stars）：核心设计是 **function-as-a-service**——将 Agent、工具、子 Agent、整个工作流统一抽象为 `fn(input) → output` 的可调用函数，无论底层是 LangChain、CrewAI 还是原生 Python 都表现为同一接口。这使得：
-- 跨框架 Agent 系统的 **token 用量、延迟、成本** 可以在统一的 profiling 链路中追踪
-- 工作流通过 YAML 配置组合，**替换组件无需改代码**
-- 定位是"元框架"（meta-framework），坐在 LangChain/CrewAI 之上做可观测性和优化
-
-**OpenShell**[^nvidia-openshell]：Agent 安全运行时（alpha）。核心问题：自主 Agent 拥有文件访问、网络请求、代码执行等能力，如何防止越权？OpenShell 的方案是 **声明式策略驱动的沙箱**——Agent 在隔离容器中运行，通过策略文件声明允许的文件路径、网络出口、可调用的 API。技术亮点：
-- 推理路由：将 API 调用透明路由到本地/自托管后端，避免敏感数据泄露到外部服务
-- OCSF 格式日志导出：沙箱内所有 Agent 行为（文件操作、网络请求、推理调用）以 [OCSF](https://ocsf.io/) 标准格式记录，可对接企业安全信息系统
-- 支持主流 Agent：Claude Code、OpenClaw、Codex 等
-
-**NemoClaw**[^nvidia-nemoclaw]：OpenShell 之上的**参考栈**（alpha），将 OpenClaw（always-on 助手）+ OpenShell（安全沙箱）+ Nemotron（开源推理模型）打包为一键启动的完整方案，简化了"我想安全地跑一个持久 Agent"的端到端流程。
-
-```
-NemoClaw（参考栈，一键启动）
-  ├── OpenClaw（always-on 助手 Agent）
-  ├── OpenShell（安全沙箱 + 策略引擎）
-  └── Nemotron（本地推理模型）
-```
-
----
-
-## 4. Agent 协议与通信
-
-### MCP (Model Context Protocol)
-
-Anthropic 提出的**工具连接协议**，定义了 LLM 与外部工具/数据源之间的标准化接口：
-
-```
-LLM ←→ MCP Server ←→ 外部工具/数据
-         ├── 文件系统
-         ├── 数据库
-         ├── API 服务
-         └── 其他 MCP Server
-```
-
-特点：
-- 标准化的工具描述和调用格式
-- Server-Client 架构
-- 支持资源 (Resources)、工具 (Tools)、提示 (Prompts)
-- 被 Claude、Cursor、Windsurf 等广泛采用
-
-### A2A (Agent-to-Agent Protocol)
-
-Google 提出的 **Agent 间通信协议**：
-- Agent 发现和能力声明
-- 任务委派和结果返回
-- 与 MCP 互补（MCP 是 Agent-工具通信，A2A 是 Agent-Agent 通信）
-
-### ANX Protocol (2026 年 4 月)
-
-最新的开源 Agent 交互协议，在四个维度对比了 MCP、A2A 等现有协议：
-- **工具使用 (Tooling)**
-- **发现机制 (Discovery)**
-- **安全性 (Security)**
-- **多 Agent SOP 协作**
-
-### Function Calling
-
-各厂商 API 的原生工具调用机制：
-
-```json
-{
-  "type": "function",
-  "function": {
-    "name": "get_weather",
-    "description": "获取指定城市的天气",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "city": { "type": "string", "description": "城市名" }
-      },
-      "required": ["city"]
-    }
-  }
-}
-```
-
----
-
-## 5. 代码 Agent
-
-代码 Agent 是目前最成熟的 Agent 应用领域。各产品的详细技术分析见 [产品档案](../coding-agents/index.md)。
-
-> **深入阅读**：代码 Agent 的 [Subagent 并行架构](subagents.md) 和 [生命周期 Hook 机制](agent-hooks.md) 已拆分为独立文档。
-
-### 主流产品
-
-| 产品 | 类型 | 特点 |
-|------|------|------|
-| **GitHub Copilot** | IDE 插件 | 实时代码补全和建议 |
-| **Cursor** | AI-native IDE | 深度集成 AI 的编辑器 |
-| **Devin** | 自主编程 Agent | 端到端完成编程任务 |
-| **Claude Code** | CLI 编程 Agent | 终端中的编程助手 |
-| **OpenAI Codex** | 云端编程 Agent | GPT-5.3-Codex 驱动 |
-| **Windsurf** | AI-native IDE | Codeium 出品 |
-| **Cline** | VS Code 插件 | 开源 Agent |
-| **Aider** | CLI 工具 | 开源 Git 集成 Agent |
-
-### 编程 Agent 能力层次
-
-```
-Level 0: 代码补全 (Tab 补全)
-Level 1: 代码生成 (从注释/描述生成代码)
-Level 2: 代码编辑 (理解上下文，修改现有代码)
-Level 3: 项目级理解 (理解整个代码库，跨文件修改)
-Level 4: 自主编程 (从需求到完成，包括调试和测试)
-Level 5: Dark Factory (0% 人工代码 + 0% 人工审核)
-```
-
-### OpenAI "Dark Factory" 与 Harness Engineering（2026.4）
-
-OpenAI Frontier 团队首次公开了全自动软件开发模式——**Dark Factory**（灯灭工厂），>100 万行代码库、~10 亿 token/天、0% 人工参与[^latentspace-2026-harness]。
-
-核心理念是 **Harness Engineering（脚手架工程）**：当 Agent 失败时，不是写更好的 prompt，而是问"缺什么能力、上下文或结构？"然后补全之。其他关键概念包括 Symphony（Elixir 多 Agent 编排层）、Ghost Library（规格驱动的软件复现）、Agent 可读性优先（代码为模型而写）。
-
-> 详细的 Symphony 编排架构与各产品 Subagent 实现对比见 [Subagent 实践 § 各产品实现对比](subagents.md#9-各产品-subagent-实现对比)。
-
-### 评估基准
-
-| 基准 | 说明 |
+| 短板 | 表现 |
 |------|------|
-| **SWE-bench** | 真实 GitHub Issue 修复 |
-| **SWE-bench Verified** | 人工验证的子集 |
-| **HumanEval** | Python 函数生成 |
-| **MBPP** | Python 编程题 |
-| **LiveCodeBench** | 动态更新的编程基准 |
+| 没有显式推理 | LLM 直接跳到行动，为什么选这个工具、传这些参数？看不到思考过程，出错了难以排查 |
+| 没有全局规划 | 每一轮都从头推理"接下来干什么"，遇到 10 步任务就产生大量重复推理，浪费 token |
+| 不会从失败中学习 | 如果某一轮调用失败，只能盲目重试，不会总结"为什么失败"来指导下次尝试 |
+
+以下三种经典架构分别解决这三个短板。
 
 ---
 
-## 6. 搜索 Agent
+## 3. 循环的三种优化
 
-### 主流产品
+### 3.1 ReAct：加入显式推理
 
-| 产品 | 特点 |
+ReAct（Reasoning + Acting）[^yao-2022-react]在每轮 Act 之前插入一个 **Think** 步骤——让模型先把推理过程写出来，再决定行动：
+
+```
+用户: 北京今天天气怎么样？
+
+── 循环第 1 轮 ──────────────────────────
+[Think]   用户问的是实时天气，我需要调用天气工具，参数是城市="北京"
+[Act]     调用 get_weather("北京")
+[Observe] 返回：晴，最高 25°C，最低 14°C
+[判断]    已拿到所需信息 → 退出循环
+
+Agent: 北京今天晴，最高 25°C，最低 14°C。
+```
+
+```mermaid
+graph LR
+    T[Think: 推理] --> A[Act: 调用工具]
+    A --> O[Observe: 接收结果]
+    O --> C{完成？}
+    C -->|否| T
+    C -->|是| D[输出答案]
+```
+
+**解决了什么**：推理过程可见了。Think 步骤暴露了模型的决策逻辑——为什么选这个工具、传什么参数、当前离目标还差多远。出错时可以直接定位是"想错了"还是"做错了"。
+
+### 3.2 Plan-and-Execute：先规划后执行
+
+当任务有多个步骤时，ReAct 每一轮都重新推理"接下来干什么"，开销高且容易在中途偏离目标。Plan-and-Execute 的思路是**先用一次推理生成完整计划，再逐步执行**：
+
+```
+用户: 帮我规划一个北京三日游
+
+── 规划阶段 ──────────────────────────
+[Plan]  1. 搜索北京热门景点
+        2. 查询各景点开放时间和门票
+        3. 根据地理位置规划每日路线
+        4. 查询天气，调整户外行程
+
+── 执行阶段 ──────────────────────────
+[Execute Step 1] 搜索北京热门景点 → 故宫、长城、颐和园...
+[Execute Step 2] 查询开放时间 → ...
+[Execute Step 3] 规划路线 → ...
+[Execute Step 4] 查询天气 → 第2天有雨，将长城换到第3天
+[判断]  所有步骤完成 → 输出行程
+```
+
+```mermaid
+graph TD
+    P[Plan: 生成步骤列表] --> E1[Execute Step 1]
+    E1 --> E2[Execute Step 2]
+    E2 --> EN[Execute Step N]
+    EN --> R{需要重规划？}
+    R -->|是| P
+    R -->|否| F[输出结果]
+```
+
+**解决了什么**：规划一次，执行 N 步。不用每步都重新推理全局目标，token 效率高，适合步骤明确的结构化任务。权衡是灵活性下降——如果中途发现计划不对，需要显式的重规划机制。
+
+| | ReAct | Plan-and-Execute |
+|---|---|---|
+| 决策方式 | 逐步推理 | 先规划后执行 |
+| 适合场景 | 探索性任务、信息不完整 | 步骤明确的结构化任务 |
+| token 效率 | 每步都重新推理，开销高 | 规划一次，执行轻量 |
+| 容错 | 自然适应，每步都能调整 | 需要显式重规划机制 |
+
+### 3.3 Reflexion：从失败中学习
+
+前两种模式在单轮循环内能处理错误（观察到报错 → 换个方式重试），但如果整个任务失败需要从头再来，之前的经验就丢了——每次重启都是白纸一张。Reflexion[^shinn-2023-reflexion]在执行循环**外面**再套一层反思循环——失败后先总结"为什么失败"，把教训写进记忆，下次执行时带上这些教训：
+
+```
+── 第 1 次尝试 ──────────────────────────
+[执行 ReAct 循环] → 失败（测试未通过）
+[Reflect] 失败原因：没有处理空列表的边界情况
+[写入记忆] "注意：该函数需要处理空列表输入"
+
+── 第 2 次尝试（带着记忆重来）──────────
+[执行 ReAct 循环] → 成功 ✓
+```
+
+```mermaid
+graph TD
+    E[执行循环] --> R{成功？}
+    R -->|是| F[完成]
+    R -->|否| RF[Reflect: 分析失败原因]
+    RF --> M[将教训写入记忆]
+    M --> E
+```
+
+**解决了什么**：Agent 级别的"经验学习"。不是随机重试，而是**结构化地提取失败经验**，让每次重试都比上次更聪明。
+
+---
+
+## 4. 循环中的关键机制
+
+### 4.1 工具调用
+
+循环的 Act 步骤依赖工具调用能力。现代 Agent 通过 [Function Calling 或 MCP](agent-tools.md) 调用工具，或通过 [Agent Skills](agent-skills.md) 编排复合工作流，工具的输出成为下一轮 Observe 的输入。
+
+### 4.2 状态管理与 Context Compact
+
+每一轮循环都在累积上下文——工具调用的参数和返回值、推理过程、中间结果，全部堆在同一个上下文窗口里。长期状态靠[记忆系统](memory-systems.md)持久化。
+
+当上下文逼近窗口上限时，有两种应对策略：
+
+| 策略 | 思路 | 适用场景 |
+|------|------|---------|
+| **Context Compact** | 让模型将已有上下文压缩为一段摘要，丢弃原始细节，循环带着摘要继续跑 | 单 Agent 长任务——上下文快满了但任务还没做完，压缩后还能继续 |
+| **Subagent 隔离** | 将子任务分发到独立上下文中执行，只回传结果摘要 | 可并行的多步任务——每个子循环的上下文互不污染，详见 [Subagent 实践](subagents.md) |
+
+Context Compact 的典型流程：上下文占用超过阈值（如 70%）→ 触发压缩 → 模型生成当前进度的结构化摘要（已完成什么、待完成什么、关键中间结果）→ 用摘要替换原始上下文 → 循环继续。代价是**丢失细节**——被压缩掉的早期推理过程和工具输出无法再回溯。
+
+### 4.3 终止条件
+
+循环何时停止是一个不平凡的问题——停得太早，任务没做完；停得太晚，浪费 token 甚至造成破坏。
+
+| 策略 | 触发方式 | 权衡 |
+|------|---------|------|
+| **模型自主终止** | 模型判断任务完成，输出 `finish` 动作或直接给出最终答案 | 最自然，但模型可能误判（以为完成了实际没完成，或陷入"我再优化一下"的死循环） |
+| **资源熔断** | 达到预设的最大步数、token 上限或超时时间，强制停止 | 兜底保障，防止失控。但上限设多少是个经验值——太低会截断正常任务，太高则失去保护意义 |
+| **人类介入** | 用户主动中断（Ctrl+C、取消按钮） | 最灵活，但要求人一直盯着。适合交互式场景，不适合后台 Agent |
+| **策略拦截** | [Hook](agent-hooks.md) 检测到特定条件后终止（如即将执行危险操作、连续 N 轮无进展） | 可编程的精细控制，能表达"删除文件前必须确认"、"连续 3 轮输出相同则终止"等业务规则 |
+
+实践中这四种策略通常叠加使用：模型自主终止是主路径，资源熔断做兜底，Hook 拦截关键操作，人类保留最终中断权。
+
+---
+
+## 5. 从单循环到多循环
+
+单 Agent 的能力天花板受限于单一上下文窗口和串行执行。突破方式是将多个循环组合：
+
+| 模式 | 核心思路 | 详见 |
+|------|---------|------|
+| **Subagent** | 主循环分发任务给子循环，子循环独立执行后回传结果 | [Subagent 实践](subagents.md) |
+| **多 Agent 协作** | 多个独立循环通过消息传递协作 | [AutoGen](../agent-frameworks/autogen.md) 对话模式 |
+| **管道式** | 循环串联，上一个输出作为下一个输入 | [CrewAI](../agent-frameworks/crewai.md) Sequential |
+| **层级式** | Manager 循环调度 Worker 循环 | OpenAI Symphony[^latentspace-2026-harness] |
+
+> 多循环系统的详细架构和各产品实现对比见 [Subagent 实践](subagents.md)。
+
+---
+
+## 6. 安全与约束
+
+Agent 循环的自主性带来安全风险——循环可能失控（无限执行）、越权（工具滥用）、被操纵（提示注入）。
+
+| 风险 | 循环中的位置 | 缓解机制 |
+|------|------------|---------|
+| 无限循环 | 终止条件失效 | 最大步数限制、超时机制 |
+| 工具滥用 | Act 步骤 | 权限策略、[Hook 拦截](agent-hooks.md)、沙箱执行 |
+| 提示注入 | Observe 步骤（外部输入污染） | 输入清洗、权限隔离 |
+| 信息泄露 | Act 步骤（向外发送数据） | 网络策略、输出过滤 |
+
+> 详细的安全研究与治理框架见 [AI 安全与治理](../research/safety-and-governance.md)。NVIDIA OpenShell 的沙箱方案见 [NeMo Agent Toolkit](../agent-frameworks/nemo-agent-toolkit.md)。
+
+---
+
+## 7. 趋势：循环的进化方向
+
+- **长运行持久循环**：Agent 从"一次性任务"走向"持续运行的守护进程"。Springdrift（2026.4 arXiv）提出可审计的持久运行时，具备案例记忆、规范性安全保障和环境自我感知
+- **Harness Engineering**[^latentspace-2026-harness]：当 Agent 循环失败时，不是优化 prompt，而是问"循环缺什么能力/上下文/结构？"然后补全之。OpenAI 的 Dark Factory 模式（>100 万行代码库、~10 亿 token/天、0% 人工参与）验证了这一思路
+- **自主计算机使用**：循环的 Act 步骤从 API 调用扩展到 GUI 操控——Agent 直接操作屏幕完成任务（Claude Computer Use、Browser Agent）
+
+---
+
+## 相关文档
+
+| 主题 | 链接 |
 |------|------|
-| **Perplexity AI** | AI 原生搜索引擎，引用来源 |
-| **Google AI Overviews** | 搜索结果中的 AI 摘要 |
-| **ChatGPT Browse** | ChatGPT 的实时搜索 |
-| **Bing Chat** | Microsoft 搜索 + AI |
-
-### 最新研究
-
-**"Search, Do not Guess"** (2026 年 4 月 arXiv):
-- 教小语言模型成为有效的搜索 Agent
-- 核心思想: 让模型在不确定时主动搜索，而非猜测
-- 对轻量级搜索增强系统有重要指导意义
-
----
-
-## 7. 安全与对齐
-
-### 主要风险
-
-| 风险 | 说明 | 缓解措施 |
-|------|------|----------|
-| **提示注入** | 恶意输入操纵 Agent 行为 | 输入清洗、权限隔离 |
-| **工具滥用** | Agent 误用或过度使用工具 | 权限控制、操作审批 |
-| **信息泄露** | 敏感数据通过 Agent 传出 | 数据分类、输出过滤 |
-| **无限循环** | Agent 陷入循环执行 | 超时机制、步骤限制 |
-| **供应链攻击** | 恶意工具或数据源 | 来源验证、沙箱执行 |
-
-### 最新安全研究 (2026.4)
-
-- **ShieldNet**: 针对 Agent 系统供应链注入的网络级防护
-- **AI Trust OS**: 自主 AI 可观测性和零信任合规的持续治理框架
-- **Governance-Aware Agent Telemetry** (Apple)[^apple-2026-governance]: 企业多 Agent 系统每小时产生数千次 Agent 间交互，现有可观测性工具（OpenTelemetry、LangSmith 等）只做依赖捕获不做执行。该方案将治理策略编码到遥测链路中，实现闭环执行（closed-loop enforcement）——不仅"看到"Agent 行为，还能在遥测层自动拦截违规交互
-
-### 安全最佳实践
-
-```
-1. 最小权限原则: Agent 只拥有完成任务所需的最少权限
-2. 人类审批: 关键操作需人类确认
-3. 沙箱执行: 工具调用在隔离环境中运行
-4. 日志审计: 记录所有 Agent 行为用于审计
-5. 速率限制: 防止 Agent 过度调用外部服务
-```
-
----
-
-## 8. 发展趋势
-
-### 8.1 多 Agent 系统
-
-多个 Agent 协作完成复杂任务（详见 [Subagent 实践](subagents.md)）：
-- **角色分工**: 不同 Agent 扮演不同角色（研究员、程序员、审核员）
-- **层级结构**: Manager Agent 分配和协调子 Agent
-- **协作模式**: 对话式、管道式、竞争式
-
-### 8.2 自主计算机使用
-
-Agent 直接操作计算机界面：
-- Claude Computer Use
-- 基于截图理解的 GUI 操控
-- Browser Agent (浏览网页完成任务)
-
-### 8.3 长运行持久 Agent
-
-**Springdrift** (2026.4 arXiv): 可审计的持久运行时，具备：
-- 基于案例的记忆
-- 规范性安全保障
-- 环境自我感知
-
-### 8.4 个性化 Agent
-
-- 学习用户偏好和工作习惯
-- 维护个人知识库
-- 主动提供建议和帮助
-
-### 8.5 Agent 基础设施成熟
-
-- 标准化协议 (MCP、A2A)
-- 评估和监控工具
-- 安全防护框架
-- 商业化部署方案
+| 记忆系统 | [Agent 记忆系统](memory-systems.md) |
+| 工具接入 | [Agent 工具接入](agent-tools.md) |
+| Agent Skills | [Agent Skills](agent-skills.md) |
+| Agent 间协议 | [Agent 间通信协议](agent-protocols.md) |
+| Agent 框架 | [框架档案](../agent-frameworks/index.md) |
+| 生命周期钩子 | [Agent Hooks](agent-hooks.md) |
+| Subagent 架构 | [Subagent 实践](subagents.md) |
+| 编码 Agent 产品 | [产品档案](../coding-agents/index.md) |
 
 ---
 
 ## 参考资料
 
+[^yao-2022-react]: Yao et al. *ReAct: Synergizing Reasoning and Acting in Language Models*. 2022. https://arxiv.org/abs/2210.03629
+[^shinn-2023-reflexion]: Shinn et al. *Reflexion: Language Agents with Verbal Reinforcement Learning*. 2023. https://arxiv.org/abs/2303.11366
 [^latentspace-2026-harness]: Latent Space. "Extreme Harness Engineering for Token Billionaires — Ryan Lopopolo, OpenAI Frontier & Symphony". 2026. https://www.latent.space/p/harness-eng
-- Yao et al., "ReAct: Synergizing Reasoning and Acting in Language Models", 2022 - [arXiv:2210.03629](https://arxiv.org/abs/2210.03629)
-- Shinn et al., "Reflexion: Language Agents with Verbal Reinforcement Learning", 2023 - [arXiv:2303.11366](https://arxiv.org/abs/2303.11366)
-- Wang et al., "A Survey on Large Language Model based Autonomous Agents", 2023 - [arXiv:2308.11432](https://arxiv.org/abs/2308.11432)
-- MCP Specification: https://spec.modelcontextprotocol.io/
-- LangGraph Documentation: https://langchain-ai.github.io/langgraph/
-[^apple-2026-governance]: Apple Machine Learning. "Governance-Aware Agent Telemetry for Closed-Loop Enforcement in Multi-Agent AI Systems". 2026. https://machinelearning.apple.com/research/governance-aware-agent-telemetry
-[^nvidia-agent-toolkit]: NVIDIA. NeMo Agent Toolkit. https://github.com/NVIDIA/NeMo-Agent-Toolkit
-[^nvidia-openshell]: NVIDIA. OpenShell — Safe, private runtime for autonomous AI agents. https://github.com/NVIDIA/OpenShell
-[^nvidia-nemoclaw]: NVIDIA. NemoClaw — Open source reference stack for always-on assistants. https://github.com/NVIDIA/NemoClaw
