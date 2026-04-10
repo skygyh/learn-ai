@@ -49,6 +49,7 @@ learn-ai/
 │   ├── applied/                # 应用技术（中频更新）
 │   ├── research/               # 前沿研究（高频更新）
 │   ├── coding-agents/          # 编码 Agent 产品档案
+│   ├── personal-agents/        # 个人 AI Agent 产品档案
 │   ├── agent-frameworks/       # Agent 框架产品档案
 │   └── landscape/              # 行业全景（模型跟踪）
 ├── journal/                     # 每日 RSS 原始素材（脚本自动生成）

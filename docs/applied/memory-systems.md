@@ -59,6 +59,10 @@ review:
     - 多通道检索：零 LLM 依赖的轻量级检索，不需要大模型做记忆查询
 - **Memory Intelligence Agent**：将记忆管理本身做成一个多 Agent 系统——专门的 Agent 负责记忆的写入、检索、整理和清洗
 
+### 辩证用户建模（2026.4）
+
+传统的用户记忆是**偏好列表**——"用户喜欢简洁回复"、"用户用 Python"。[Hermes Agent](../personal-agents/hermes-agent.md) 通过 Honcho 框架做**辩证用户建模**：不是记录离散偏好，而是通过多轮交互逐步构建和修正一个"用户心智模型"。本质区别在于：偏好列表是静态的 key-value，心智模型是动态的、可推理的——Agent 能从已有理解**推断**新场景下用户可能的偏好，而不需要每次都被显式告知。
+
 > 更多记忆相关前沿研究见[新兴前沿方向](../research/emerging-frontiers.md)。
 
 ---

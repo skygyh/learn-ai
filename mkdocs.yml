@@ -118,6 +118,9 @@ nav:
     - Sourcegraph Cody: coding-agents/sourcegraph-cody.md
     - Tabnine: coding-agents/tabnine.md
     - Trae: coding-agents/trae.md
+  - 个人 Agent:
+    - personal-agents/index.md
+    - Hermes Agent: personal-agents/hermes-agent.md
   - 行业全景:
     - landscape/index.md
     - 模型动态跟踪: landscape/model-tracker.md
