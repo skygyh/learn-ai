@@ -15,6 +15,7 @@
 | `subagents.md` | Subagent / 多 Agent 架构 |
 | `prompt-engineering.md` | 提示工程 |
 | `rag.md` | 检索增强生成 |
+| `browser-automation.md` | AI 浏览器自动化（Accessibility Snapshot、Playwright CLI/MCP） |
 | `infrastructure.md` | 硬件 / 推理 / 部署基础设施 |
 
 ## 收录哪些内容
@@ -29,4 +30,5 @@
 - Agent 框架产品档案 → `docs/agent-frameworks/`
 - 提示技巧 / 框架 → `prompt-engineering.md`
 - RAG 新方法 → `rag.md`
+- AI 浏览器自动化（Accessibility Snapshot / Playwright）→ `browser-automation.md`
 - 硬件 / 推理 / 部署 → `infrastructure.md`
