@@ -94,6 +94,7 @@ nav:
     - 检索增强生成 (RAG): applied/rag.md
     - AI 浏览器自动化: applied/browser-automation.md
     - AI 基础设施: applied/infrastructure.md
+    - 推理经济性: applied/inference-economics.md
   - 前沿研究:
     - research/index.md
     - 推理与规划: research/reasoning-and-planning.md

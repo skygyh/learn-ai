@@ -17,6 +17,7 @@
 | `rag.md` | 检索增强生成 |
 | `browser-automation.md` | AI 浏览器自动化（Accessibility Snapshot、Playwright CLI/MCP） |
 | `infrastructure.md` | 硬件 / 推理 / 部署基础设施 |
+| `inference-economics.md` | 推理经济性（GPU 成本、API 定价、盈亏模型） |
 
 ## 收录哪些内容
 
@@ -32,3 +33,4 @@
 - RAG 新方法 → `rag.md`
 - AI 浏览器自动化（Accessibility Snapshot / Playwright）→ `browser-automation.md`
 - 硬件 / 推理 / 部署 → `infrastructure.md`
+- 推理经济性 / GPU 成本 / API 定价 → `inference-economics.md`

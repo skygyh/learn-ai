@@ -404,6 +404,8 @@ ONNX (Open Neural Network Exchange) 提供模型格式标准化：
 
 ## 8. 成本优化
 
+> 推理服务的盈亏模型、API 定价趋势、GPU 租赁 vs 自有硬件的经济性分析详见 [推理经济性](inference-economics.md)。以下聚焦工程层面的成本优化策略。
+
 ### 8.1 GPU 定价参考 (云)
 
 | GPU | 按需价格 (≈$/hr) | 预留价格 | 适用 |
